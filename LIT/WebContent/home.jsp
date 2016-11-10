@@ -5,19 +5,19 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>LIT Home</title>
-<style>
-div.search {
-    width: 66%;
-    align: center
-    border: 1px solid gray;
-}
-</style>
+<!--[if !IE 7]>
+	<style type="text/css">
+		#wrap {display:table;height:100%}
+	</style>
+<![endif]-->
 </head>
 <body>
+<div id="wrap" align="center">
+	<!-- Title -->
 	<h1><u>Legislator Issue Tracker</u></h1>
-	
-	
-	<div class="search">
+	<br/><br/>
+
+	<div id="main" align="center">
 	
 	<!-- Legislator Search -->
 	<form method="post" action="legislatorprofile.jsp">
@@ -139,12 +139,14 @@ div.search {
 			</select>
 			<input type="submit" value="Submit" />
 	</form>
+	<br/>
 	
 	<!-- Bill Number Search -->
 	<form method="post" action="billprofile.jsp">
 		<input type="text" name="billno" />
 		<input type="submit" value="Submit" />
 	</form>
+	<br/>
 	
 	<!-- Bill Date Search -->
 	<form method="post" action="billdatesearch.jsp">
@@ -169,5 +171,51 @@ div.search {
 	</form>
 	
 	</div>
+	</div>
+
+	<!-- Admin Login -->
+	<div id="footer" align="right">
+	 <form name="submitForm" method="post" action="adminlogin.jsp">
+    	<input type="hidden">
+    	<A HREF="javascript:document.submitForm.submit()">Admin Login</A>
+	</form>
+	</div>
+
 </body>
+
+<style>
+/*  
+Sticky Footer Solution
+by Steve Hatcher 
+http://stever.ca
+http://www.cssstickyfooter.com
+*/
+
+* {margin:0;padding:0;} 
+
+/* must declare 0 margins on everything, also for main layout components use padding, not 
+vertical margins (top and bottom) to add spacing, else those margins get added to total height 
+and your footer gets pushed down a bit more, creating vertical scroll bars in the browser */
+
+html, body {height: 100%;}
+
+#wrap {min-height: 100%;}
+
+#main {overflow:auto;
+	padding-bottom: 180px;}  /* must be same height as the footer */
+
+#footer {position: relative;
+	margin-top: -180px; /* negative value of footer height */
+	height: 180px;
+	clear:both;} 
+
+/*Opera Fix*/
+body:before {/* thanks to Maleika (Kohoutec)*/
+content:"";
+height:100%;
+float:left;
+width:0;
+margin-top:-32767px;/* thank you Erik J - negate effect of float*/
+}
+</style>
 </html>
