@@ -16,25 +16,32 @@
 	// get parameters
 	String start = request.getParameter("start");
 	String end = request.getParameter("end");
+	start = "01/01/2016";
+	end = "31/12/2016";
 	
 		// make sure they are correct dates
 		if (start.matches("\\d{2}/\\d{2}/\\d{4}") && end.matches("\\d{2}/\\d{2}/\\d{4}")) {
 			out.print("Bills from " + start + " through " + end + ":");
 			
+			// convert to mysql date format
+			start = start.substring(6) + "-" + start.substring(3, 5) + "-" + start.substring(0, 2);
+			end = end.substring(6) + "-" + end.substring(3, 5) + "-" + end.substring(0, 2);
+			
 			// get list of bills from DB
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/litdb?" 
+			Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
 			+ "user=root&password=ojmayonnaise");
 			PreparedStatement pst = connection.prepareStatement
-					("SELECT Id FROM bills WHERE startDate >= " + start + " AND startDate <=" + end);
+					("SELECT Id FROM Bills WHERE StartDate BETWEEN '" + start + "' AND '" + end + "'");
 			ResultSet rs = pst.executeQuery();
 			
 			// print list of bills
 			while(rs.next()) {
-				String billno = rs.getString("Id");
+				String billno = Integer.toString(rs.getInt("Id"));
+				out.print("<br/><br/>");
 				out.print("<form name=\"submitForm\" method=\"post\" action=\"billprofile.jsp\">" +
 				    	"<input type=\"hidden\" name=\"billno\" value=\"" + billno + "\">" +
-		    	"<A HREF=\"javascript:document.submitForm.submit()\">Bill" + billno + "</A>" +
+		    	"<A HREF=\"javascript:document.submitForm.submit()\">Bill " + billno + "</A>" +
 			"</form>");
 			}
 		}
