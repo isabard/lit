@@ -28,5 +28,6 @@
 			<attribute name="org.eclipse.jst.component.nondependency" value=""/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="/home/scott/Downloads/jsoup-1.9.2.jar"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

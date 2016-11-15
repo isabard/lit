@@ -9,7 +9,7 @@ START TRANSACTION;
 -- Table for bills
 CREATE TABLE Bills (
 	Id int,
-	Title varchar(128),
+	Title varchar(512),
 	Category varchar(128),
 	Committee varchar(128),
 	StartDate date,
@@ -19,6 +19,7 @@ CREATE TABLE Bills (
 	WC1 varchar(64), WC2 varchar(64), WC3 varchar(64), WC4 varchar(64),
 	WC5 varchar(64), WC6 varchar(64), WC7 varchar(64), WC8 varchar(64),
 	WC9 varchar(64), WC10 varchar(64),
+	Link varchar(2083),
 	PRIMARY KEY (Id)
 );
 

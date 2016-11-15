@@ -16,8 +16,6 @@
 	// get parameters
 	String start = request.getParameter("start");
 	String end = request.getParameter("end");
-	start = "01/01/2016";
-	end = "31/12/2016";
 	
 		// make sure they are correct dates
 		if (start.matches("\\d{2}/\\d{2}/\\d{4}") && end.matches("\\d{2}/\\d{2}/\\d{4}")) {
