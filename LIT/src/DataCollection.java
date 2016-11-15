@@ -54,6 +54,7 @@ public class DataCollection {
 				// first, check if it's a bill number element
 				if (text.contains("Senate Bill No.") || text.contains("House Bill No.")) {
 					currentBill = new Bill();
+					currentBill.setCategory(Integer.toString(category));
 					bills.addElement(currentBill);
 					currentBill.setId(Integer.parseInt(text.substring(text.lastIndexOf(" ") + 1)));
 					
@@ -98,8 +99,19 @@ public class DataCollection {
 				}
 			}
 			
-			for (Bill b : bills)
-				System.out.println(b.toString());
+			// get links to bill contents
+			selected = doc.select("a[href]");
+			
+			int billIndex = 0;
+			for (int i = 0; i < selected.size(); i ++) {
+				if (selected.get(i).text().length() == 4) {
+					bills.get(billIndex).setLink(selected.get(i).attr("abs:href"));
+					billIndex++;
+				}
+			}
+			
+			//for (Bill b : bills)
+				//System.out.println(b.toString());
 				
 		} catch (IOException e) {
 			e.printStackTrace();
