@@ -1,4 +1,7 @@
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Properties;
 import java.util.Vector;
 
 import org.jsoup.Jsoup;
@@ -16,11 +19,42 @@ public class DataCollection {
 	
 	// base link to fetch data from source 
 	final static String baseLink = "http://status.rilin.state.ri.us/bill_history_report.aspx?year=2016";
+	// base links for bill pdfs
+	final static String baseHouse = "http://webserver.rilin.state.ri.us/BillText/BillText16/HouseText16/H#.pdf";
+	final static String baseSenate = "http://webserver.rilin.state.ri.us/BillText/BillText16/SenateText16/S#.pdf";
 
 	public static void main(String[] args) {
-		Vector<Bill> test = new Vector<Bill>();
-		fetchCategory(150, test);
+		
+		// fetch all bills and parse the HTML
+		Properties categoryPairs = new Properties();
+		Vector<Bill> allBills = new Vector<Bill>();
+		try {
+			// open properties file of category pairs
+			categoryPairs.load(new FileInputStream("./etc/categories.properties"));
+			
+			// create temporary vector for each category
+			Vector<Bill> temp;
 
+			// get bills category by category
+			for (Object category : categoryPairs.keySet()) {
+				temp = new Vector<Bill>();
+				fetchCategory(Integer.parseInt((String) category), temp);
+				
+				for (Bill b : temp) {
+					b.setCategory(categoryPairs.getProperty((String) category));
+					System.out.println(b);
+				}
+				
+				allBills.addAll(temp);
+			}
+			
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 	}
 	
 	/**
@@ -35,6 +69,14 @@ public class DataCollection {
 		try {
 			// get the page's HTML
 			Document doc = Jsoup.parse(Jsoup.connect(url).get().html());
+			
+			// if no bills exist in the category, just skip it
+			if (doc.toString().contains("Total Bills: 0") && doc.toString().contains("No Bills Met this Criteria")) {
+				System.out.println("Skipping " + category);
+				return;
+			}
+			
+			System.out.println("Trying " + category);
 			
 			// select the bill area
 			Elements selected = doc.select("span");
@@ -52,11 +94,38 @@ public class DataCollection {
 				String text = e.text();
 				
 				// first, check if it's a bill number element
-				if (text.contains("Senate Bill No.") || text.contains("House Bill No.")) {
+				if (text.contains("Senate Bill No.") || text.contains("House Bill No.") ||
+						text.contains("Senate Resolution No.") || text.contains("House Resolution No.")) {
 					currentBill = new Bill();
 					currentBill.setCategory(Integer.toString(category));
 					bills.addElement(currentBill);
-					currentBill.setId(Integer.parseInt(text.substring(text.lastIndexOf(" ") + 1)));
+					currentBill.setId(Integer.parseInt(text.replaceAll("\\D+","")));
+					
+					// add link
+					if (text.contains("House")) {
+						currentBill.setLink(baseHouse.replace("#", Integer.toString(currentBill.getId())));
+					}
+					else if (text.contains("Senate")) {
+						currentBill.setLink(baseSenate.replace("#", Integer.toString(currentBill.getId())));
+					}
+					
+					// detect sub bills
+					if (text.contains("SUB")) {
+						String toAdd = "";
+						
+						// add a or b
+						if (text.contains("SUB A"))
+							toAdd = "A";
+						else if (text.contains("SUB B"))
+							toAdd = "B";
+						
+						// add aa if it's amended
+						if (text.contains("as amended"))
+							toAdd = toAdd + "aa";
+						
+						// add to link
+						currentBill.setLink(currentBill.getLink().replace(".pdf", toAdd + ".pdf"));
+					}
 					
 					//System.out.println("Bill " + currentBill.getId());
 				}
@@ -96,17 +165,6 @@ public class DataCollection {
 					currentBill.setStatus(text.substring(11));
 					
 					//System.out.println("Added to billno " + currentBill.getId() + " " + currentBill.getStatus() );
-				}
-			}
-			
-			// get links to bill contents
-			selected = doc.select("a[href]");
-			
-			int billIndex = 0;
-			for (int i = 0; i < selected.size(); i ++) {
-				if (selected.get(i).text().length() == 4) {
-					bills.get(billIndex).setLink(selected.get(i).attr("abs:href"));
-					billIndex++;
 				}
 			}
 			
