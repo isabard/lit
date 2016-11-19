@@ -23,7 +23,7 @@ public class DBInit {
 			// create table for bills
 			PreparedStatement pst = connection.prepareStatement("CREATE TABLE Bills (" +
 																"Id int," +
-																"Title varchar(512)," +
+																"Title varchar(2083)," +
 																"Category varchar(128)," +
 																"Committee varchar(128)," +
 																"StartDate date," +
@@ -61,6 +61,8 @@ public class DBInit {
 			// close connection
 			pst.close();
 			connection.close();
+			
+			System.out.println("Successfully initialized db");
 			
 		} catch (Exception e) {
 			e.printStackTrace();

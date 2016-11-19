@@ -1,9 +1,14 @@
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.text.SimpleDateFormat;
+import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.TreeMap;
 import java.util.Vector;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -25,10 +30,26 @@ public class DataCollection {
 
 	public static void main(String[] args) {
 		
+		
+		
 		// fetch all bills and parse the HTML
 		Properties categoryPairs = new Properties();
 		Vector<Bill> allBills = new Vector<Bill>();
+		// keep track of bills added to prevent duplicates
+		Vector<Integer> runningIds = new Vector<Integer>();
 		try {
+			// connect to database
+			Class.forName("com.mysql.jdbc.Driver").newInstance();
+			Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
+																	+ "user=root&password=ojmayonnaise");
+				
+			// get current bills from database
+			PreparedStatement pst = connection.prepareStatement("SELECT Id FROM Bills");
+			ResultSet rs = pst.executeQuery();
+			while (rs.next()) {
+				runningIds.add(rs.getInt(1));
+			}
+			
 			// open properties file of category pairs
 			categoryPairs.load(new FileInputStream("./etc/categories.properties"));
 			
@@ -45,16 +66,71 @@ public class DataCollection {
 					System.out.println(b);
 				}
 				
-				allBills.addAll(temp);
+				// add bill and its id to running lists
+				for (Bill b : temp) {
+					if (!runningIds.contains(b.getId())) {
+						allBills.add(b);
+						runningIds.add(b.getId());
+					}
+				}
+			}
+			System.out.println("Finished getting all bills.");
+			
+			// create map of legislator names to ids
+			Properties legislators = new Properties();
+			legislators.load(new FileInputStream("./etc/legislators.properties"));
+			TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
+			for (Entry<Object, Object> e : legislators.entrySet()) {
+				String name = (String) e.getValue();
+				legIds.put(name.substring(0, name.indexOf(" ")), Integer.parseInt((String) e.getKey()));
+			}
+			System.out.println("Made legislator-id map");
+			
+			// add bills to database
+			SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
+			for (Bill b : allBills) {
+				// insert bill
+				pst = connection.prepareStatement("INSERT INTO Bills VALUES (?,?,?,?,?,?,?,?)");
+				pst.setInt(1, b.getId());
+				pst.setString(2, b.getTitle());
+				pst.setString(3, b.getCategory());
+				pst.setString(4, b.getCommittee());
+				if (b.getStartDate() != null)
+					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
+				else {
+					System.out.println("Bill " + b.getId() + " has no start date.");
+					b.toString();
+					continue;
+				}
+				if (b.getLastActiveDate() != null)
+					pst.setDate(6, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+				else {
+					System.out.println("Bill " + b.getId() + " has no last active date.");
+					b.toString();
+					continue;
+				}
+				pst.setString(7, b.getStatus());
+				pst.setString(8, b.getLink());
+				pst.executeUpdate();
+				System.out.println("Added bill number " + b.getId());
+				
+				// add sponsor relationships
+				for (String s : b.getSponsors()) {
+					Integer leg = (Integer) legislators.get(s);
+					// if sponsor not found, move onto next
+					if (leg == null)
+						continue;
+					pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
+					pst.setInt(1, b.getId());
+					pst.setInt(2, leg);
+					pst.executeUpdate();
+					System.out.println("Added Sponsor" + leg + " to " + b.getId());
+				}
 			}
 			
-			
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		
 	}
 	
 	/**
