@@ -12,7 +12,7 @@
 	<h1><u>Login</u></h1>
 	
 	<% 
-	// get parametersss
+	// get parameters
 	String username = request.getParameter("username");
 	String password = request.getParameter("password");
 	
@@ -21,7 +21,43 @@
 	Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.4:3306/litdb?" 
 	+ "user=root&password=ojmayonnaise");
 	
-	PreparedStatement pst = connection.prepareStatement
+	PreparedStatement pst = connection.prepareStatement("SELECT username, password FROM users WHERE username=? and password=?");
+	pst.setString(1, username);
+	pst.setString(2, password);
+	ResultSet rs = pst.executeQuery();
+	
+	if (rs.next())
+		out.println("Valid login");
+	else
+		out.println("Invalid login");
 	%>
+	
+	<form method="post" action="validate.jsp">
+			<div align="center">
+			<table border="1">
+				<thead>
+					<tr>
+						<th colspan="2">Login</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Username</td>
+						<td><input type="text" name="username" required/></td>
+					</tr>
+					<tr>
+						<td>Password</td>
+						<td><input type="password" name="password" required/></td>
+					</tr>
+					<tr>
+						<td colspan="2" align="center"><input type="submit" value="Login" />
+							&nbsp;&nbsp;
+							<input type="reset" value="Reset" />
+						</td>
+					</tr>
+				</tbody>
+			</table>
+			</div>
+		</form>
 </body>
 </html>
