@@ -27,7 +27,10 @@ public class DataCollection {
 	// base links for bill pdfs
 	final static String baseHouse = "http://webserver.rilin.state.ri.us/BillText/BillText16/HouseText16/H#.pdf";
 	final static String baseSenate = "http://webserver.rilin.state.ri.us/BillText/BillText16/SenateText16/S#.pdf";
-
+	// successful/failed status lists
+	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
+	final static String[] failedStatuses = {"Vetoed by Governor"};
+	
 	public static void main(String[] args) {
 		
 		
@@ -46,8 +49,9 @@ public class DataCollection {
 			// get current bills from database
 			PreparedStatement pst = connection.prepareStatement("SELECT Id FROM Bills");
 			ResultSet rs = pst.executeQuery();
+			Vector<Integer> existingBills = new Vector<Integer>();
 			while (rs.next()) {
-				runningIds.add(rs.getInt(1));
+				existingBills.add(rs.getInt("Id"));
 			}
 			
 			// open properties file of category pairs
@@ -82,50 +86,136 @@ public class DataCollection {
 			TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
 			for (Entry<Object, Object> e : legislators.entrySet()) {
 				String name = (String) e.getValue();
-				legIds.put(name.substring(0, name.indexOf(" ")), Integer.parseInt((String) e.getKey()));
+				legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
 			}
 			System.out.println("Made legislator-id map");
 			
 			// add bills to database
 			SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
 			for (Bill b : allBills) {
-				// insert bill
-				pst = connection.prepareStatement("INSERT INTO Bills VALUES (?,?,?,?,?,?,?,?)");
-				pst.setInt(1, b.getId());
-				pst.setString(2, b.getTitle());
-				pst.setString(3, b.getCategory());
-				pst.setString(4, b.getCommittee());
-				if (b.getStartDate() != null)
-					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
-				else {
-					System.out.println("Bill " + b.getId() + " has no start date.");
-					b.toString();
-					continue;
-				}
-				if (b.getLastActiveDate() != null)
-					pst.setDate(6, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
-				else {
-					System.out.println("Bill " + b.getId() + " has no last active date.");
-					b.toString();
-					continue;
-				}
-				pst.setString(7, b.getStatus());
-				pst.setString(8, b.getLink());
-				pst.executeUpdate();
-				System.out.println("Added bill number " + b.getId());
+				// temporary bad date fix
+				if (b.getStartDate() == null)
+					b.setStartDate("1/1/2016");
+				if (b.getLastActiveDate() == null)
+					b.setLastActiveDate("1/1/2016");
 				
-				// add sponsor relationships
-				for (String s : b.getSponsors()) {
-					Integer leg = (Integer) legislators.get(s);
-					// if sponsor not found, move onto next
-					if (leg == null)
-						continue;
-					pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
-					pst.setInt(1, b.getId());
-					pst.setInt(2, leg);
+				// see if bill is new or already in db
+				if (existingBills.contains(b.getId())) {
+					// update bill
+					pst = connection.prepareStatement("UPDATE Bills SET Title = ?, Category = ?, "
+							+ "Committee = ?, StartDate = ?, LastActiveDate = ?, Status = ?, "
+							+ "Link = ? WHERE Id = ?");
+					pst.setString(1, b.getTitle());
+					pst.setString(2, b.getCategory());
+					pst.setString(3, b.getCommittee());
+					pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
+					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+					pst.setString(6, b.getStatus());
+					pst.setString(7, b.getLink());
+					pst.setInt(8, b.getId());
 					pst.executeUpdate();
-					System.out.println("Added Sponsor" + leg + " to " + b.getId());
+					System.out.println("Updated bill number " + b.getId());
+					
+					// get current sponsors
+					pst = connection.prepareStatement("SELECT Sponsor FROM Sponsors WHERE Bill = ?");
+					pst.setInt(1, b.getId());
+					rs = pst.executeQuery();
+					Vector<Integer> currentSponsors = new Vector<Integer>();
+					while (rs.next()) {
+						currentSponsors.add(rs.getInt("Sponsor"));
+					}
+					
+					// add sponsor relationships that don't exist
+					for (String s : b.getSponsors()) {
+						Integer leg = legIds.get(s);
+						// if sponsor not found, move onto next
+						if (leg == null) {
+							System.out.println("Legislator id " + leg + " for " + s);
+							System.out.println(legIds.toString());
+							continue;
+						}
+						pst = connection.prepareStatement("INSERT INTO Sponsors Values (?,?)");
+						pst.setInt(1, b.getId());
+						pst.setInt(2, leg);
+						pst.executeUpdate();
+						//System.out.println("Added Sponsor " + leg + " to " + b.getId());
+					}
 				}
+				else {
+					// insert bill
+					pst = connection.prepareStatement("INSERT INTO Bills VALUES (?,?,?,?,?,?,?,?)");
+					pst.setInt(1, b.getId());
+					pst.setString(2, b.getTitle());
+					pst.setString(3, b.getCategory());
+					pst.setString(4, b.getCommittee());
+					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
+					pst.setDate(6, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+					pst.setString(7, b.getStatus());
+					pst.setString(8, b.getLink());
+					pst.executeUpdate();
+					System.out.println("Added bill number " + b.getId());
+					
+					// add sponsor relationships
+					for (String s : b.getSponsors()) {
+						Integer leg = legIds.get(s);
+						// if sponsor not found, move onto next
+						if (leg == null)
+							continue;
+						pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
+						pst.setInt(1, b.getId());
+						pst.setInt(2, leg);
+						pst.executeUpdate();
+						//System.out.println("Added Sponsor" + leg + " to " + b.getId());
+					}
+				}
+			}
+			
+			// update legislator success/fail bill counts
+			for (Integer leg : legIds.values()) {
+				// get all of legislator's bills
+				pst = connection.prepareStatement("SELECT Bill FROM Sponsors WHERE Sponsor = ?");
+				pst.setInt(1, leg);
+				rs = pst.executeQuery();
+				Vector<Integer> bills = new Vector<Integer>();
+				while (rs.next()) {
+					bills.add(rs.getInt("Bill"));
+				}
+				//System.out.println("Got bills " + bills.toString());
+				
+				// get each bill's status
+				Vector<String> statuses = new Vector<String>();
+				for (Integer b : bills) {
+					pst = connection.prepareStatement("SELECT Status FROM Bills WHERE Id = ?");
+					pst.setInt(1, b);
+					rs = pst.executeQuery();
+					if (rs.next())
+						statuses.add(rs.getString("Status"));
+				}
+				//System.out.println("Got statuses " + statuses.toString());
+				
+				// count successes and failures
+				int success = 0;
+				int fail = 0;
+				Vector<String> succStatuses = new Vector<String>();
+				Vector<String> failStatuses = new Vector<String>();
+				succStatuses.copyInto(successStatuses);
+				failStatuses.copyInto(failedStatuses);
+				
+				for (String s : statuses) {
+					//System.out.println("Comparing " + s);
+					if (succStatuses.contains(s))
+						success++;
+					else if (failStatuses.contains(s))
+						fail++;
+				}
+				
+				// update legislator success/fail counts
+				pst = connection.prepareStatement("UPDATE Legislators SET PassedBills = ?, FailedBills = ? WHERE Id = ?");
+				pst.setInt(1, success);;
+				pst.setInt(2, fail);
+				pst.setInt(3, leg);
+				pst.executeUpdate();
+				System.out.println("Updated Legislator " + leg + " with success/fail " + success + "/" + fail);
 			}
 			
 		} catch (Exception e) {
@@ -210,13 +300,13 @@ public class DataCollection {
 					String rawSponsors = text.substring(4);
 					String[] sponsors = rawSponsors.split(",");
 					for (String s : sponsors)
-						currentBill.addSponsor(s);
+						currentBill.addSponsor(s.trim());
 					
 					//System.out.println("Added to billno " + currentBill.getId() + " " + currentBill.getSponsors());
 				}
 				// then, check if it's a title
 				else if ((text.length() >= 10) && text.substring(0, 9).equals("ENTITLED,")) {
-					currentBill.setTitle(text.substring(10));
+					currentBill.setTitle(text.substring(10).trim());
 					
 					//System.out.println("Added to billno " + currentBill.getId() + " " + currentBill.getTitle());
 				}
@@ -227,7 +317,7 @@ public class DataCollection {
 						currentBill.setStartDate(text.substring(0, 10));
 						
 						// set the committee
-						currentBill.setCommittee(text.substring(35));
+						currentBill.setCommittee(text.substring(35).trim());
 						
 						//System.out.println("Added to billno " + currentBill.getId() + " " + currentBill.getStartDate() + " " + currentBill.getCommittee());
 					}
@@ -238,7 +328,7 @@ public class DataCollection {
 					}
 					
 					// set the status
-					currentBill.setStatus(text.substring(11));
+					currentBill.setStatus(text.substring(11).trim());
 					
 					//System.out.println("Added to billno " + currentBill.getId() + " " + currentBill.getStatus() );
 				}
@@ -430,6 +520,22 @@ public class DataCollection {
 			this.link = link;
 		}
 		
+		/**
+		 * equals method to determine if two bills are the same
+		 * @param other
+		 * @return
+		 */
+		public boolean equals(Bill other) {
+			return (this.id == other.getId()) && (this.title.equals(other.getTitle())) &&
+					(this.category.equals(other.getCategory())) && (this.committee.equals(other.getCommittee())) &&
+					(this.startDate.equals(other.getStartDate())) && (this.lastActiveDate.equals(other.getLastActiveDate())) &&
+					(this.status.equals(other.getStatus())) && (this.link.equals(other.getLink())) &&
+					(this.sponsors.equals(other.getSponsors()));
+		}
+		
+		/**
+		 * toString method to show Bill's info
+		 */
 		public String toString() {
 			return "Bill no: " + id + "\n" +
 					"Titled " + title + "\n" +

@@ -28,7 +28,7 @@ public class DBInit {
 																"Committee varchar(128)," +
 																"StartDate date," +
 																"LastActiveDate date," +
-																"Status varchar(64)," +
+																"Status varchar(128)," +
 																"Link varchar(2083)," +
 																"PRIMARY KEY (Id))");
 			pst.executeUpdate();
