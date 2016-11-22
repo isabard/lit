@@ -32,43 +32,55 @@ public class DataCollection {
 	final static String[] failedStatuses = {"Vetoed by Governor"};
 	
 	public static void main(String[] args) {
-		
-		
-		
-		// fetch all bills and parse the HTML
-		Properties categoryPairs = new Properties();
-		Vector<Bill> allBills = new Vector<Bill>();
-		// keep track of bills added to prevent duplicates
-		Vector<Integer> runningIds = new Vector<Integer>();
 		try {
 			// connect to database
-			Class.forName("com.mysql.jdbc.Driver").newInstance();
-			Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
-																	+ "user=root&password=ojmayonnaise");
-				
+			Connection connection = getConnection();
+			
+			// get current bills from database
+			Vector<Bill> allBills = new Vector<Bill>();
+			Vector<Integer> runningIds = new Vector<Integer>();
+			Vector<Integer> existingBills = new Vector<Integer>();
+			getBills(connection, allBills, runningIds, existingBills);
+			
+			// create map of legislator names to ids
+			TreeMap<String, Integer> legIds = null;
+			makeLegIdMap(legIds);
+			
+			// add bills to database
+			addUpdate(allBills, existingBills, connection, legIds);
+			
+			// update legislator success/fail bill counts
+			updateStats(legIds, connection);
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	
+	}
+	
+	static void getBills(Connection connection, Vector<Bill> allBills, Vector<Integer> runningIds, Vector<Integer> existingBills) {
+		Properties categoryPairs = new Properties();
+		try {
 			// get current bills from database
 			PreparedStatement pst = connection.prepareStatement("SELECT Id FROM Bills");
 			ResultSet rs = pst.executeQuery();
-			Vector<Integer> existingBills = new Vector<Integer>();
 			while (rs.next()) {
 				existingBills.add(rs.getInt("Id"));
 			}
 			
 			// open properties file of category pairs
 			categoryPairs.load(new FileInputStream("./etc/categories.properties"));
+			int numCats = categoryPairs.size();
+			int completedCats = 0;
 			
 			// create temporary vector for each category
 			Vector<Bill> temp;
 
 			// get bills category by category
-			for (Object category : categoryPairs.keySet()) {
+			for (Object cat : categoryPairs.keySet()) {
+				Integer category = Integer.parseInt((String) cat);
 				temp = new Vector<Bill>();
-				fetchCategory(Integer.parseInt((String) category), temp);
-				
-				for (Bill b : temp) {
-					b.setCategory(categoryPairs.getProperty((String) category));
-					System.out.println(b);
-				}
+				fetchCategory(category, temp);
 				
 				// add bill and its id to running lists
 				for (Bill b : temp) {
@@ -77,100 +89,40 @@ public class DataCollection {
 						runningIds.add(b.getId());
 					}
 				}
+				
+				completedCats++;
+				
+				System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
 			}
 			System.out.println("Finished getting all bills.");
-			
-			// create map of legislator names to ids
-			Properties legislators = new Properties();
-			legislators.load(new FileInputStream("./etc/legislators.properties"));
-			TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
-			for (Entry<Object, Object> e : legislators.entrySet()) {
-				String name = (String) e.getValue();
-				legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
-			}
-			System.out.println("Made legislator-id map");
-			
-			// add bills to database
-			SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
-			for (Bill b : allBills) {
-				// temporary bad date fix
-				if (b.getStartDate() == null)
-					b.setStartDate("1/1/2016");
-				if (b.getLastActiveDate() == null)
-					b.setLastActiveDate("1/1/2016");
-				
-				// see if bill is new or already in db
-				if (existingBills.contains(b.getId())) {
-					// update bill
-					pst = connection.prepareStatement("UPDATE Bills SET Title = ?, Category = ?, "
-							+ "Committee = ?, StartDate = ?, LastActiveDate = ?, Status = ?, "
-							+ "Link = ? WHERE Id = ?");
-					pst.setString(1, b.getTitle());
-					pst.setString(2, b.getCategory());
-					pst.setString(3, b.getCommittee());
-					pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
-					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
-					pst.setString(6, b.getStatus());
-					pst.setString(7, b.getLink());
-					pst.setInt(8, b.getId());
-					pst.executeUpdate();
-					System.out.println("Updated bill number " + b.getId());
-					
-					// get current sponsors
-					pst = connection.prepareStatement("SELECT Sponsor FROM Sponsors WHERE Bill = ?");
-					pst.setInt(1, b.getId());
-					rs = pst.executeQuery();
-					Vector<Integer> currentSponsors = new Vector<Integer>();
-					while (rs.next()) {
-						currentSponsors.add(rs.getInt("Sponsor"));
-					}
-					
-					// add sponsor relationships that don't exist
-					for (String s : b.getSponsors()) {
-						Integer leg = legIds.get(s);
-						// if sponsor not found, move onto next
-						if (leg == null) {
-							System.out.println("Legislator id " + leg + " for " + s);
-							System.out.println(legIds.toString());
-							continue;
-						}
-						pst = connection.prepareStatement("INSERT INTO Sponsors Values (?,?)");
-						pst.setInt(1, b.getId());
-						pst.setInt(2, leg);
-						pst.executeUpdate();
-						//System.out.println("Added Sponsor " + leg + " to " + b.getId());
-					}
-				}
-				else {
-					// insert bill
-					pst = connection.prepareStatement("INSERT INTO Bills VALUES (?,?,?,?,?,?,?,?)");
-					pst.setInt(1, b.getId());
-					pst.setString(2, b.getTitle());
-					pst.setString(3, b.getCategory());
-					pst.setString(4, b.getCommittee());
-					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
-					pst.setDate(6, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
-					pst.setString(7, b.getStatus());
-					pst.setString(8, b.getLink());
-					pst.executeUpdate();
-					System.out.println("Added bill number " + b.getId());
-					
-					// add sponsor relationships
-					for (String s : b.getSponsors()) {
-						Integer leg = legIds.get(s);
-						// if sponsor not found, move onto next
-						if (leg == null)
-							continue;
-						pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
-						pst.setInt(1, b.getId());
-						pst.setInt(2, leg);
-						pst.executeUpdate();
-						//System.out.println("Added Sponsor" + leg + " to " + b.getId());
-					}
-				}
-			}
-			
-			// update legislator success/fail bill counts
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Method to get a connection to the database.
+	 * @return
+	 */
+	static Connection getConnection() {
+		try {
+			Class.forName("com.mysql.jdbc.Driver").newInstance();
+			return DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
+																	+ "user=root&password=ojmayonnaise");
+		} catch (Exception e) {
+			return null;
+		}
+	}
+	
+	/**
+	 * Method to count the successful and failed bills for each legislator and update the database.
+	 * @param legIds
+	 * @param connection
+	 */
+	static void updateStats(TreeMap<String, Integer> legIds, Connection connection) {
+		PreparedStatement pst;
+		ResultSet rs;
+		try {
 			for (Integer leg : legIds.values()) {
 				// get all of legislator's bills
 				pst = connection.prepareStatement("SELECT Bill FROM Sponsors WHERE Sponsor = ?");
@@ -196,17 +148,21 @@ public class DataCollection {
 				// count successes and failures
 				int success = 0;
 				int fail = 0;
-				Vector<String> succStatuses = new Vector<String>();
-				Vector<String> failStatuses = new Vector<String>();
-				succStatuses.copyInto(successStatuses);
-				failStatuses.copyInto(failedStatuses);
 				
-				for (String s : statuses) {
-					//System.out.println("Comparing " + s);
-					if (succStatuses.contains(s))
-						success++;
-					else if (failStatuses.contains(s))
-						fail++;
+				Counter: for (String s : statuses) {
+					for (String succ : successStatuses) {
+						if (s.equals(succ)) {
+							success++;
+							continue Counter;
+						}
+					}
+					
+					for (String failed : failedStatuses) {
+						if (s.equals(failed)) {
+							fail++;
+							continue Counter;
+						}
+					}
 				}
 				
 				// update legislator success/fail counts
@@ -217,7 +173,156 @@ public class DataCollection {
 				pst.executeUpdate();
 				System.out.println("Updated Legislator " + leg + " with success/fail " + success + "/" + fail);
 			}
-			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Method to create a map of legislator names to their ids.
+	 * @param legIds
+	 */
+	static void makeLegIdMap(TreeMap<String, Integer> legIds) {
+		try {
+			// open properties file
+			Properties legislators = new Properties();
+			legislators.load(new FileInputStream("./etc/legislators.properties"));
+			legIds = new TreeMap<String, Integer>();
+			// iterate through all legislators and fill in
+			for (Entry<Object, Object> e : legislators.entrySet()) {
+				String name = (String) e.getValue();
+				legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
+			}
+			System.out.println("Made legislator-id map");
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Method to take fetched bills and add/update the database with them.
+	 * 
+	 * @param allBills
+	 * @param existingBills
+	 * @param connection
+	 * @param legIds
+	 */
+	static void addUpdate(Vector<Bill> allBills, Vector<Integer> existingBills, Connection connection,
+							TreeMap<String, Integer> legIds) {
+		// add bills to database
+		PreparedStatement pst;
+		ResultSet rs;
+		
+		SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
+		
+		try {
+			for (Bill b : allBills) {
+				// temporary bad date fix
+				if (b.getStartDate() == null)
+					b.setStartDate("1/1/2016");
+				if (b.getLastActiveDate() == null)
+					b.setLastActiveDate("1/1/2016");
+				
+				// see if bill is new or already in db
+				if (existingBills.contains(b.getId())) {
+					// update bill
+					pst = connection.prepareStatement("UPDATE Bills SET Title = ?, "
+							+ "Committee = ?, StartDate = ?, LastActiveDate = ?, Status = ?, "
+							+ "Link = ? WHERE Id = ?");
+					pst.setString(1, b.getTitle());
+					pst.setString(2, b.getCommittee());
+					pst.setDate(3, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
+					pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+					pst.setString(5, b.getStatus());
+					pst.setString(6, b.getLink());
+					pst.setInt(7, b.getId());
+					pst.executeUpdate();
+					System.out.println("Updated bill number " + b.getId());
+					
+					// get current sponsors
+					pst = connection.prepareStatement("SELECT Sponsor FROM Sponsors WHERE Bill = ?");
+					pst.setInt(1, b.getId());
+					rs = pst.executeQuery();
+					Vector<Integer> currentSponsors = new Vector<Integer>();
+					while (rs.next()) {
+						currentSponsors.add(rs.getInt("Sponsor"));
+					}
+					
+					// add sponsor relationships that don't exist
+					for (String s : b.getSponsors()) {
+						Integer leg = legIds.get(s);
+						// if sponsor not found or already exists, move onto next
+						if (leg == null || currentSponsors.contains(leg)) {
+							continue;
+						}
+						else {
+							pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
+							pst.setInt(1, b.getId());
+							pst.setInt(2, leg);
+							pst.executeUpdate();
+							//System.out.println("Added Sponsor " + leg + " to " + b.getId());
+						}
+					}
+					
+					// get current categories
+					pst = connection.prepareStatement("SELECT Category FROM HasCategory WHERE Bill = ?");
+					pst.setInt(1, b.getId());
+					rs = pst.executeQuery();
+					Vector<Integer>	currentCategories = new Vector<Integer>();
+					while (rs.next()) {
+						currentCategories.add(rs.getInt("Category"));
+					}
+					
+					// add category relationships that don't exist
+					for (Integer i : b.getCategories()) {
+						// if already exists, move onto next
+						if (currentCategories.contains(i)) {
+							continue;
+						}
+						else {
+							pst = connection.prepareStatement("INSERT INTO HasCategory VALUES (?,?)");
+							pst.setInt(1, b.getId());
+							pst.setInt(2, i);
+							pst.executeUpdate();
+						}
+					}
+				}
+				else {
+					// insert bill
+					pst = connection.prepareStatement("INSERT INTO Bills VALUES (?,?,?,?,?,?,?)");
+					pst.setInt(1, b.getId());
+					pst.setString(2, b.getTitle());
+					pst.setString(3, b.getCommittee());
+					pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
+					pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+					pst.setString(6, b.getStatus());
+					pst.setString(7, b.getLink());
+					pst.executeUpdate();
+					System.out.println("Added bill number " + b.getId());
+					
+					// add sponsor relationships
+					for (String s : b.getSponsors()) {
+						Integer leg = legIds.get(s);
+						// if sponsor not found, move onto next
+						if (leg == null)
+							continue;
+						pst = connection.prepareStatement("INSERT INTO Sponsors VALUES (?,?)");
+						pst.setInt(1, b.getId());
+						pst.setInt(2, leg);
+						pst.executeUpdate();
+						//System.out.println("Added Sponsor" + leg + " to " + b.getId());
+					}
+					
+					// add category relationships
+					for (Integer i : b.getCategories()) {
+						pst = connection.prepareStatement("INSERT INTO HasCategory VALUES (?,?)");
+						pst.setInt(1, b.getId());
+						pst.setInt(2, i);
+						pst.executeUpdate();
+					}
+				}
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -263,7 +368,7 @@ public class DataCollection {
 				if (text.contains("Senate Bill No.") || text.contains("House Bill No.") ||
 						text.contains("Senate Resolution No.") || text.contains("House Resolution No.")) {
 					currentBill = new Bill();
-					currentBill.setCategory(Integer.toString(category));
+					currentBill.addCategory(category);
 					bills.addElement(currentBill);
 					currentBill.setId(Integer.parseInt(text.replaceAll("\\D+","")));
 					
@@ -350,8 +455,9 @@ public class DataCollection {
 	 */
 	static class Bill {
 		int id;
-		String title, category, committee, startDate, lastActiveDate, status, link;
+		String title, committee, startDate, lastActiveDate, status, link;
 		Vector<String> sponsors;
+		Vector<Integer> categories;
 		
 		/**
 		 * Constructor with all locals as parameters.
@@ -365,11 +471,11 @@ public class DataCollection {
 		 * @param status
 		 * @param link
 		 */
-		Bill(int id, String title, String category, String committee, String startDate, 
+		Bill(int id, String title, String committee, String startDate, 
 				String lastActiveDate, String status, String link) {
 			this.id = id;
 			this.title = title;
-			this.category = category;
+			this.categories = new Vector<Integer>();
 			this.committee = committee;
 			this.startDate = startDate;
 			this.lastActiveDate = lastActiveDate;
@@ -384,7 +490,7 @@ public class DataCollection {
 		Bill() {
 			this.id = 0;
 			this.title = null;
-			this.category = null;
+			this.categories = new Vector<Integer>();
 			this.committee = null;
 			this.startDate = null;
 			this.lastActiveDate = null;
@@ -437,17 +543,17 @@ public class DataCollection {
 		}
 
 		/**
-		 * @return the category
+		 * @return the categories
 		 */
-		String getCategory() {
-			return category;
+		Vector<Integer> getCategories() {
+			return categories;
 		}
 
 		/**
 		 * @param category the category to set
 		 */
-		void setCategory(String category) {
-			this.category = category;
+		void addCategory(Integer category) {
+			categories.add(category);
 		}
 
 		/**
@@ -527,7 +633,7 @@ public class DataCollection {
 		 */
 		public boolean equals(Bill other) {
 			return (this.id == other.getId()) && (this.title.equals(other.getTitle())) &&
-					(this.category.equals(other.getCategory())) && (this.committee.equals(other.getCommittee())) &&
+					(this.categories.equals(other.getCategories())) && (this.committee.equals(other.getCommittee())) &&
 					(this.startDate.equals(other.getStartDate())) && (this.lastActiveDate.equals(other.getLastActiveDate())) &&
 					(this.status.equals(other.getStatus())) && (this.link.equals(other.getLink())) &&
 					(this.sponsors.equals(other.getSponsors()));
@@ -539,7 +645,7 @@ public class DataCollection {
 		public String toString() {
 			return "Bill no: " + id + "\n" +
 					"Titled " + title + "\n" +
-					"Category " + category + "\n" +
+					"Categories " + categories + "\n" +
 					"Committee " + committee + "\n" +
 					"Start and last active " + startDate + " " + lastActiveDate + "\n" +
 					"Status " + status + "\n" +

@@ -24,7 +24,6 @@ public class DBInit {
 			PreparedStatement pst = connection.prepareStatement("CREATE TABLE Bills (" +
 																"Id int," +
 																"Title varchar(2083)," +
-																"Category varchar(128)," +
 																"Committee varchar(128)," +
 																"StartDate date," +
 																"LastActiveDate date," +
@@ -51,6 +50,29 @@ public class DBInit {
 				pst.setString(2, (String) leg.getValue());
 				pst.executeUpdate();	
 			}
+			
+			// create table for categories
+			pst = connection.prepareStatement("CREATE TABLE Categories (" +
+												"Id int," +
+												"Name varchar(128)," +
+												"PRIMARY KEY (Id))");
+			pst.executeUpdate();
+			
+			// populate categories
+			Properties categories = new Properties();
+			categories.load(new FileInputStream("./etc/categories.properties"));
+			for (Entry<Object, Object> cat : categories.entrySet()) {
+				pst = connection.prepareStatement("INSERT INTO Categories VALUES (?, ?)");
+				pst.setInt(1, Integer.parseInt((String) cat.getKey()));
+				pst.setString(2, (String) cat.getValue());
+				pst.executeUpdate();
+			}
+			
+			// create table for category relationships
+			pst = connection.prepareStatement("CREATE TABLE HasCategory (" +
+											  "Bill int REFERENCES Bills(Id)," +
+											  "Category int REFERENCES Categories(Id))");
+			pst.executeUpdate();
 			
 			// create table for sponsors
 			pst = connection.prepareStatement("CREATE TABLE Sponsors (" +
