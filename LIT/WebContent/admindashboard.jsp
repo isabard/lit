@@ -8,9 +8,10 @@
 </head>
 <body>
 	<h1>Dashboard</h1>
+	<!--  Have to add in logic to actually initiate the data collection -->>
 	<button type="button" onclick="alert('Running. Takes up to 10 minutes.')">Run Data Collection</button>
 		
-
+	<!-- Add in logic to pull the omitted words list -->>
 	<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
   	<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
   	<script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
