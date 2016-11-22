@@ -4,10 +4,10 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Insert title here</title>
+<title>Admin Dashboard</title>
 </head>
 <body>
-	<h1>Dashboard</h1>
+	<h1>Administrator Dashboard</h1>
 	<!--  Have to add in logic to actually initiate the data collection -->>
 	<button type="button" onclick="alert('Running. Takes up to 10 minutes.')">Run Data Collection</button>
 		
