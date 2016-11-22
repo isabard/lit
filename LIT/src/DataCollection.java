@@ -32,33 +32,48 @@ public class DataCollection {
 	final static String[] failedStatuses = {"Vetoed by Governor"};
 	
 	public static void main(String[] args) {
-		try {
-			// connect to database
-			Connection connection = getConnection();
-			
+		// connect to database
+		Connection connection = getConnection();
+		
+		// only proceed with a connection
+		if (connection != null) {
 			// get current bills from database
 			Vector<Bill> allBills = new Vector<Bill>();
 			Vector<Integer> runningIds = new Vector<Integer>();
 			Vector<Integer> existingBills = new Vector<Integer>();
-			getBills(connection, allBills, runningIds, existingBills);
+			int gotBills = getBills(connection, allBills, runningIds, existingBills);
 			
-			// create map of legislator names to ids
-			TreeMap<String, Integer> legIds = null;
-			makeLegIdMap(legIds);
-			
-			// add bills to database
-			addUpdate(allBills, existingBills, connection, legIds);
-			
-			// update legislator success/fail bill counts
-			updateStats(legIds, connection);
-			
-		} catch (Exception e) {
-			e.printStackTrace();
+			// only proceed if bills were actually retrieved successfully
+			if (gotBills == 0) {
+				// create map of legislator names to ids
+				TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
+				int madeMap = makeLegIdMap(legIds);
+				
+				// only proceed with a successfully made map
+				if (madeMap == 0) {
+					// add bills to database
+					int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
+					if (wereAdded != 0) {
+						System.out.println("Did not complete bill adding successfully.");
+					}
+					
+					// update legislator success/fail bill counts
+					int wasUpdated = updateStats(legIds, connection);
+					if (wasUpdated != 0) {
+						System.out.println("Did not complete updating bill success/fail successfully.");
+					}
+				}
+				else {
+					System.out.println("Did not complete making a map of legislator names to IDs successfully.");
+				}
+			}
+			else {
+				System.out.println("Did not complete getting all bills successfully.");
+			}
 		}
-	
 	}
 	
-	static void getBills(Connection connection, Vector<Bill> allBills, Vector<Integer> runningIds, Vector<Integer> existingBills) {
+	static int getBills(Connection connection, Vector<Bill> allBills, Vector<Integer> runningIds, Vector<Integer> existingBills) {
 		Properties categoryPairs = new Properties();
 		try {
 			// get current bills from database
@@ -77,16 +92,19 @@ public class DataCollection {
 			Vector<Bill> temp;
 
 			// get bills category by category
+			int fetched = 0;
 			for (Object cat : categoryPairs.keySet()) {
 				Integer category = Integer.parseInt((String) cat);
 				temp = new Vector<Bill>();
-				fetchCategory(category, temp);
+				fetched = fetchCategory(category, temp);
 				
-				// add bill and its id to running lists
-				for (Bill b : temp) {
-					if (!runningIds.contains(b.getId())) {
-						allBills.add(b);
-						runningIds.add(b.getId());
+				if (fetched == 0) {
+					// add bill and its id to running lists
+					for (Bill b : temp) {
+						if (!runningIds.contains(b.getId())) {
+							allBills.add(b);
+							runningIds.add(b.getId());
+						}
 					}
 				}
 				
@@ -97,7 +115,10 @@ public class DataCollection {
 			System.out.println("Finished getting all bills.");
 		} catch (Exception e) {
 			e.printStackTrace();
+			return 1;
 		}
+		
+		return 0;
 	}
 	
 	/**
@@ -119,7 +140,7 @@ public class DataCollection {
 	 * @param legIds
 	 * @param connection
 	 */
-	static void updateStats(TreeMap<String, Integer> legIds, Connection connection) {
+	static int updateStats(TreeMap<String, Integer> legIds, Connection connection) {
 		PreparedStatement pst;
 		ResultSet rs;
 		try {
@@ -175,19 +196,21 @@ public class DataCollection {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			return 1;
 		}
+		
+		return 0;
 	}
 	
 	/**
 	 * Method to create a map of legislator names to their ids.
 	 * @param legIds
 	 */
-	static void makeLegIdMap(TreeMap<String, Integer> legIds) {
+	static int makeLegIdMap(TreeMap<String, Integer> legIds) {
 		try {
 			// open properties file
 			Properties legislators = new Properties();
 			legislators.load(new FileInputStream("./etc/legislators.properties"));
-			legIds = new TreeMap<String, Integer>();
 			// iterate through all legislators and fill in
 			for (Entry<Object, Object> e : legislators.entrySet()) {
 				String name = (String) e.getValue();
@@ -197,7 +220,10 @@ public class DataCollection {
 		}
 		catch (Exception e) {
 			e.printStackTrace();
+			return 1;
 		}
+		
+		return 0;
 	}
 	
 	/**
@@ -208,7 +234,7 @@ public class DataCollection {
 	 * @param connection
 	 * @param legIds
 	 */
-	static void addUpdate(Vector<Bill> allBills, Vector<Integer> existingBills, Connection connection,
+	static int addUpdate(Vector<Bill> allBills, Vector<Integer> existingBills, Connection connection,
 							TreeMap<String, Integer> legIds) {
 		// add bills to database
 		PreparedStatement pst;
@@ -325,7 +351,10 @@ public class DataCollection {
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
+			return 1;
 		}
+		
+		return 0;
 	}
 	
 	/**
@@ -333,7 +362,7 @@ public class DataCollection {
 	 * @param category
 	 * @param bills
 	 */
-	static void fetchCategory(int category, Vector<Bill> bills) {
+	static int fetchCategory(int category, Vector<Bill> bills) {
 		// construct url with category
 		String url = baseLink + "&category=" + category;
 		
@@ -344,10 +373,10 @@ public class DataCollection {
 			// if no bills exist in the category, just skip it
 			if (doc.toString().contains("Total Bills: 0") && doc.toString().contains("No Bills Met this Criteria")) {
 				System.out.println("Skipping " + category);
-				return;
+				return 0;
 			}
 			
-			System.out.println("Trying " + category);
+			//System.out.println("Trying " + category);
 			
 			// select the bill area
 			Elements selected = doc.select("span");
@@ -444,7 +473,10 @@ public class DataCollection {
 				
 		} catch (IOException e) {
 			e.printStackTrace();
+			return 1;
 		}
+		
+		return 0;
 	}
 	
 	/**
