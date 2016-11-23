@@ -22,7 +22,6 @@
 	<!-- Legislator Search -->
 	<form method="post" action="legislatorprofile.jsp">
                <select name="legislator" >
-				<option selected="selected" value="">Select Legislator</option>
 				<option value="438">Abney, Marvin</option>
 				<option value="430">Ackerman, Mia</option>
 				<option value="1">Ajello, Edith</option>
