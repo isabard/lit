@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <title>JSP Page</title>
+        <title>Logged Out</title>
     </head>
     <body>
         <%
@@ -11,6 +11,7 @@
         session.invalidate();
         %>
         <h1>Logout was done successfully.</h1>
+        <a href="home.jsp">Go home</a>
         
     </body>
 </html>
