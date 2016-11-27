@@ -32,7 +32,7 @@
 	
 	String DbLegName = rs.getString("Name");
 	int passedBills = rs.getInt("PassedBills");
-	int failedBills = re.getInt("FailedBills");
+	int failedBills = rs.getInt("FailedBills");
 	
 	out.print("<br/><br/>");
 	out.print("<form name=\"submitForm\" method=\"post\" action=\"legislatorprofile.jsp\">" +
@@ -51,9 +51,7 @@
 				"<input type=\"hidden\" name=\"failedBills\" value=\"" + failedBills + "\">" +
 		    	"<A HREF=\"javascript:document.submitForm.submit()\">Failed Bills " + failedBills + "</A>" +
 				"</form>");
-	}
 	%>
-	</div>
 	</div>
 </body>
 </html>
