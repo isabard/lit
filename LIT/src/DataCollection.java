@@ -1,14 +1,26 @@
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.Vector;
+
+import org.apache.pdfbox.cos.COSDocument;
+import org.apache.pdfbox.io.RandomAccessBuffer;
+import org.apache.pdfbox.pdfparser.PDFParser;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -29,7 +41,7 @@ public class DataCollection {
 	final static String baseSenate = "http://webserver.rilin.state.ri.us/BillText/BillText16/SenateText16/S#.pdf";
 	// successful/failed status lists
 	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
-	final static String[] failedStatuses = {"Vetoed by Governor"};
+	final static String[] failedStatuses = {"Vetoed by Governor", "Committee recommended measure be held for further study"};
 	
 	public static void main(String[] args) {
 		// connect to database
@@ -56,11 +68,17 @@ public class DataCollection {
 					if (wereAdded != 0) {
 						System.out.println("Did not complete bill adding successfully.");
 					}
+					else {
+						System.out.println("Completed bill adding successfully.");
+					}
 					
 					// update legislator success/fail bill counts
 					int wasUpdated = updateStats(legIds, connection);
 					if (wasUpdated != 0) {
 						System.out.println("Did not complete updating bill success/fail successfully.");
+					}
+					else {
+						System.out.println("Completed updating bill success/fail and areas of concentration successfully.");
 					}
 				}
 				else {
@@ -70,6 +88,11 @@ public class DataCollection {
 			else {
 				System.out.println("Did not complete getting all bills successfully.");
 			}
+		}
+		try {
+			connection.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 	}
 	
@@ -192,7 +215,86 @@ public class DataCollection {
 				pst.setInt(2, fail);
 				pst.setInt(3, leg);
 				pst.executeUpdate();
-				System.out.println("Updated Legislator " + leg + " with success/fail " + success + "/" + fail);
+				//System.out.println("Updated Legislator " + leg + " with success/fail " + success + "/" + fail);
+			
+				// count areas (categories) of concentration
+				TreeMap<Integer, Integer> areas = new TreeMap<Integer, Integer>();
+				for (Integer b : bills) {
+					pst = connection.prepareStatement("SELECT Category FROM HasCategory WHERE Bill = ?");
+					pst.setInt(1, b);
+					rs = pst.executeQuery();
+					int cat = 0;
+					while (rs.next()) {
+						cat = rs.getInt("Category");
+						if (areas.keySet().contains(cat)) {
+							areas.put(cat, areas.get(cat) + 1);
+						}
+						else {
+							areas.put(cat, 1);
+						}
+					}
+				}
+				
+				// remove old areas from table
+				pst = connection.prepareStatement("DELETE FROM Concentrations WHERE Legislator = ?");
+				pst.setInt(1, leg);
+				pst.executeUpdate();
+				
+				// sort by occurances
+				Object[] sorted = areas.descendingMap().keySet().toArray();
+				
+				// add to table
+				//System.out.print("Gave legislator " + leg + " areas of concentration ");
+				for (int i = 0; i < 3; i++) {
+					if (sorted.length >= i) {
+						pst = connection.prepareStatement("INSERT INTO Concentrations VALUES (?,?)");
+						pst.setInt(1, leg);
+						pst.setInt(2, (int) sorted[i]);
+						pst.executeUpdate();
+						//System.out.print(" " + sorted[i]);
+					}
+					else {
+						break;
+					}
+				}
+				//System.out.println();
+				
+				// get word clouds of sponsored bills
+				TreeMap<String, Integer> clouds = new TreeMap<String, Integer>();
+				for (Integer b : bills) {
+					pst = connection.prepareStatement("SELECT Word, Count FROM BillWordClouds WHERE Bill = ?");
+					pst.setInt(1, b);
+					rs = pst.executeQuery();
+					while (rs.next()) {
+						String word = rs.getString("Word");
+						int count = rs.getInt("Count");
+						if (clouds.containsKey(word)) {
+							clouds.put(word, clouds.get(word) + count);
+						}
+						else {
+							clouds.put(word, count);
+						}
+					}
+				}
+				
+				// sort collected word counts
+				Object[] sortedClouds = clouds.descendingMap().keySet().toArray();
+				
+				// remove current from table
+				pst = connection.prepareStatement("DELETE FROM LegWordClouds WHERE Legislator = ?");
+				pst.setInt(1, leg);
+				pst.executeUpdate();
+				
+				// add newly calculated words
+				for (int i = 0; i < 10; i++) {
+					pst = connection.prepareStatement("INSERT INTO LegWordClouds VALUES (?,?,?)");
+					pst.setInt(1, leg);
+					pst.setString(2, (String) sortedClouds[i]);
+					pst.setInt(3, clouds.get(sortedClouds[i]));
+					pst.executeUpdate();
+				}
+				
+				System.out.println("Updated legislator " + leg);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -243,6 +345,13 @@ public class DataCollection {
 		SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
 		
 		try {
+			// get ommitted words list
+			FileInputStream fis = new FileInputStream("./etc/ommittedwordslist.treeset");
+			ObjectInputStream ois = new ObjectInputStream(fis);
+			TreeSet<String> owl = (TreeSet<String>) ois.readObject();
+			fis.close();
+			ois.close();
+			
 			for (Bill b : allBills) {
 				// temporary bad date fix
 				if (b.getStartDate() == null)
@@ -345,6 +454,46 @@ public class DataCollection {
 						pst = connection.prepareStatement("INSERT INTO HasCategory VALUES (?,?)");
 						pst.setInt(1, b.getId());
 						pst.setInt(2, i);
+						pst.executeUpdate();
+					}
+					
+					// create word cloud from bill's text
+					URL url = new URL(b.getLink());
+					URLConnection uconnection = url.openConnection();
+					InputStream in = uconnection.getInputStream();
+					RandomAccessBuffer rab = new RandomAccessBuffer(in);
+					
+					PDFParser parser = new PDFParser(rab);
+					parser.parse();
+					COSDocument cosDoc = parser.getDocument();
+					PDFTextStripper stripper = new PDFTextStripper();
+					PDDocument pdDoc = new PDDocument(cosDoc);
+					String text = stripper.getText(pdDoc);
+					text = text.replaceAll("[^a-zA-Z\\s]", "");
+					String[] words = text.split("\\s");
+					pdDoc.close();
+					cosDoc.close();
+					rab.close();
+					in.close();
+					TreeMap<String, Integer> countedWords = new TreeMap<String, Integer>();
+					for (String w : words) {
+						if (w.length() >= 4 && !owl.contains(w)) {
+							if (countedWords.keySet().contains(w)) {
+								countedWords.put(w, countedWords.get(w) + 1);
+							}
+							else {
+								countedWords.put(w, 1);
+							}
+						}
+					}
+					
+					Object[] sorted = countedWords.descendingMap().keySet().toArray();
+					
+					for (int i = 0; i < 10; i++) {
+						pst = connection.prepareStatement("INSERT INTO BillWordClouds VALUES (?, ?, ?)");
+						pst.setInt(1, b.getId());
+						pst.setString(2, (String) sorted[i]);
+						pst.setInt(3, countedWords.get(sorted[i]));
 						pst.executeUpdate();
 					}
 				}

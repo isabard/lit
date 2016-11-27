@@ -80,6 +80,26 @@ public class DBInit {
 											  "Sponsor int REFERENCES Legislators(Id))");
 			pst.executeUpdate();
 			
+			// create table for areas of concentration
+			pst = connection.prepareStatement("CREATE TABLE Concentrations (" +
+											  "Legislator int REFERENCES Legislators(Id)," +
+											  "Category int REFERENCES Categories(Id))");
+			pst.executeUpdate();
+			
+			// create table for bill word clouds
+			pst = connection.prepareStatement("CREATE TABLE BillWordClouds (" +
+											  "Bill int REFERENCES Bills(Id)," +
+											  "Word varchar(32)," +
+											  "Count int)");
+			pst.executeUpdate();
+			
+			// create table for legislator word clouds
+			pst = connection.prepareStatement("CREATE TABLE LegWordClouds (" +
+											  "Legislator int REFERENCES Legislators(Id)," +
+											  "Word varchar(32)," +
+											  "Count int)");
+			pst.executeUpdate();
+			
 			// close connection
 			pst.close();
 			connection.close();
