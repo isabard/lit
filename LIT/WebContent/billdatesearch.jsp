@@ -47,7 +47,6 @@
 			out.print("Bad input given for a date search.\n"+
 					"Use the selector or DD/MM/YYYY.");
 		}
-
 	%>
 	</div>
 </body>
