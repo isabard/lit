@@ -9,7 +9,28 @@
 <body>
 	<h1>Administrator Dashboard</h1>
 	<!--  Have to add in logic to actually initiate the data collection -->>
-	<button type="button" onclick="alert('Running. Takes up to 10 minutes.')">Run Data Collection</button>
+	<script type="text/javascript"
+    src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script>
+    $(document).on("click", "#datacollection",
+            function() {
+    			$('#datacollection').attr('disabled','disabled');
+				$.get("DataCollection", function(){});
+				var data = "";
+    			setInterval(function(){
+    				$.post("DataCollection", function(data) {
+      					if (data == "0") {
+      						clearInterval();
+      					}
+      					else {
+                    		$('#output').text(data);
+      					}
+    				})
+    			}, 5000);
+            });
+    </script>
+    <button id="datacollection">Start DataCollection</button>
+    <div id="output"></div>
 		
 	<!-- Add in logic to pull the omitted words list -->>
 	<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
