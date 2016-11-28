@@ -2,6 +2,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.PipedReader;
+import java.io.PipedWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.sql.Connection;
@@ -15,7 +17,6 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
-
 import org.apache.pdfbox.cos.COSDocument;
 import org.apache.pdfbox.io.RandomAccessBuffer;
 import org.apache.pdfbox.pdfparser.PDFParser;
@@ -43,52 +44,70 @@ public class DataCollection {
 	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
 	final static String[] failedStatuses = {"Vetoed by Governor", "Committee recommended measure be held for further study"};
 	
-	public static void main(String[] args) {
+	// pipedwriter for output
+	static PipedWriter output = new PipedWriter();
+	
+	public static void main(PipedReader input) {
 		// connect to database
 		Connection connection = getConnection();
 		
-		// only proceed with a connection
-		if (connection != null) {
-			// get current bills from database
-			Vector<Bill> allBills = new Vector<Bill>();
-			Vector<Integer> runningIds = new Vector<Integer>();
-			Vector<Integer> existingBills = new Vector<Integer>();
-			int gotBills = getBills(connection, allBills, runningIds, existingBills);
-			
-			// only proceed if bills were actually retrieved successfully
-			if (gotBills == 0) {
-				// create map of legislator names to ids
-				TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
-				int madeMap = makeLegIdMap(legIds);
+		// connect pipe to calling jsp
+		try {
+			output.connect(input);
+			String message;
+		
+			// only proceed with a connection
+			if (connection != null) {
+				// get current bills from database
+				Vector<Bill> allBills = new Vector<Bill>();
+				Vector<Integer> runningIds = new Vector<Integer>();
+				Vector<Integer> existingBills = new Vector<Integer>();
+				int gotBills = getBills(connection, allBills, runningIds, existingBills);
 				
-				// only proceed with a successfully made map
-				if (madeMap == 0) {
-					// add bills to database
-					int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
-					if (wereAdded != 0) {
-						System.out.println("Did not complete bill adding successfully.");
-					}
-					else {
-						System.out.println("Completed bill adding successfully.");
-					}
+				// only proceed if bills were actually retrieved successfully
+				if (gotBills == 0) {
+					// create map of legislator names to ids
+					TreeMap<String, Integer> legIds = new TreeMap<String, Integer>();
+					int madeMap = makeLegIdMap(legIds);
 					
-					// update legislator success/fail bill counts
-					int wasUpdated = updateStats(legIds, connection);
-					if (wasUpdated != 0) {
-						System.out.println("Did not complete updating bill success/fail successfully.");
+					// only proceed with a successfully made map
+					if (madeMap == 0) {
+						// add bills to database
+						int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
+						if (wereAdded != 0) {
+							message = "Did not complete bill adding successfully.";
+							output.write(message.toCharArray());
+						}
+						else {
+							message = "Completed bill adding successfully.";
+							output.write(message.toCharArray());
+						}
+						
+						// update legislator success/fail bill counts
+						int wasUpdated = updateStats(legIds, connection);
+						if (wasUpdated != 0) {
+							message = "Did not complete updating bill success/fail successfully.";
+							output.write(message.toCharArray());
+						}
+						else {
+							message = "Completed updating bill success/fail and areas of concentration successfully.";
+							output.write(message.toCharArray());
+						}
 					}
 					else {
-						System.out.println("Completed updating bill success/fail and areas of concentration successfully.");
+						message = "Did not complete making a map of legislator names to IDs successfully.";
+						output.write(message.toCharArray());
 					}
 				}
 				else {
-					System.out.println("Did not complete making a map of legislator names to IDs successfully.");
+					message = "Did not complete getting all bills successfully.";
+					output.write(message.toCharArray());
 				}
 			}
-			else {
-				System.out.println("Did not complete getting all bills successfully.");
-			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+		
 		try {
 			connection.close();
 		} catch (SQLException e) {
@@ -108,8 +127,8 @@ public class DataCollection {
 			
 			// open properties file of category pairs
 			categoryPairs.load(new FileInputStream("./etc/categories.properties"));
-			int numCats = categoryPairs.size();
-			int completedCats = 0;
+			//int numCats = categoryPairs.size();
+			//int completedCats = 0;
 			
 			// create temporary vector for each category
 			Vector<Bill> temp;
@@ -131,11 +150,12 @@ public class DataCollection {
 					}
 				}
 				
-				completedCats++;
+				//completedCats++;
 				
-				System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
+				//System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
 			}
-			System.out.println("Finished getting all bills.");
+			String message = "Finished getting all bills.";
+			output.write(message.toCharArray());
 		} catch (Exception e) {
 			e.printStackTrace();
 			return 1;
@@ -294,7 +314,7 @@ public class DataCollection {
 					pst.executeUpdate();
 				}
 				
-				System.out.println("Updated legislator " + leg);
+				//System.out.println("Updated legislator " + leg);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -318,7 +338,8 @@ public class DataCollection {
 				String name = (String) e.getValue();
 				legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
 			}
-			System.out.println("Made legislator-id map");
+			String message = "Made legislator-id map";
+			output.write(message.toCharArray());
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -348,6 +369,7 @@ public class DataCollection {
 			// get ommitted words list
 			FileInputStream fis = new FileInputStream("./etc/ommittedwordslist.treeset");
 			ObjectInputStream ois = new ObjectInputStream(fis);
+			@SuppressWarnings("unchecked")
 			TreeSet<String> owl = (TreeSet<String>) ois.readObject();
 			fis.close();
 			ois.close();
@@ -373,7 +395,7 @@ public class DataCollection {
 					pst.setString(6, b.getLink());
 					pst.setInt(7, b.getId());
 					pst.executeUpdate();
-					System.out.println("Updated bill number " + b.getId());
+					//System.out.println("Updated bill number " + b.getId());
 					
 					// get current sponsors
 					pst = connection.prepareStatement("SELECT Sponsor FROM Sponsors WHERE Bill = ?");
@@ -434,7 +456,7 @@ public class DataCollection {
 					pst.setString(6, b.getStatus());
 					pst.setString(7, b.getLink());
 					pst.executeUpdate();
-					System.out.println("Added bill number " + b.getId());
+					//System.out.println("Added bill number " + b.getId());
 					
 					// add sponsor relationships
 					for (String s : b.getSponsors()) {
@@ -521,7 +543,7 @@ public class DataCollection {
 			
 			// if no bills exist in the category, just skip it
 			if (doc.toString().contains("Total Bills: 0") && doc.toString().contains("No Bills Met this Criteria")) {
-				System.out.println("Skipping " + category);
+				//System.out.println("Skipping " + category);
 				return 0;
 			}
 			
