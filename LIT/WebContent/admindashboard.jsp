@@ -48,5 +48,6 @@
     	});
   		});
 	</script>
+	<a href="logout.jsp">Logout</a>
 </body>
 </html>
