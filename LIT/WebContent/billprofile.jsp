@@ -40,6 +40,18 @@
 	while (rs.next()) {
 		out.print(rs.getString("Name") + " ");
 	}
+	
+	out.print("<br/><br/>");
+	
+	// get word cloud
+	pst = connection.prepareStatement("SELECT Word FROM BillWordClouds WHERE Bill = ?");
+	pst.setInt(1, billno);
+	rs = pst.executeQuery();
+	out.print("Word cloud: ");
+	while (rs.next()) {
+		out.print(rs.getString("Word") + " ");
+	}
+	connection.close();
 	}
 	%>
 </body>

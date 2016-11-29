@@ -51,8 +51,8 @@ public class DataCollection extends HttpServlet{
 	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
 	final static String[] failedStatuses = {"Vetoed by Governor", "Committee recommended measure be held for further study"};
 	
-	String output = "";
-    private static final ExecutorService threadpool = Executors.newFixedThreadPool(3);
+	String message = "";
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     @SuppressWarnings("rawtypes")
 	Future future;
 	
@@ -64,7 +64,7 @@ public class DataCollection extends HttpServlet{
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		Collect collection = new Collect();
-		future = threadpool.submit(collection);
+		future = executor.submit(collection);
 		response.getWriter().append("Served at: ").append(request.getContextPath());
 	}
 
@@ -80,7 +80,7 @@ public class DataCollection extends HttpServlet{
 		else {
 			response.setContentType("text/plain");
 			response.setCharacterEncoding("UTF-8");
-			response.getWriter().write(output);
+			response.getWriter().write(message);
 		}
 	}
 	
@@ -90,10 +90,10 @@ public class DataCollection extends HttpServlet{
 			Connection connection = getConnection();
 			
 			try {
-				String message;
 			
 				// only proceed with a connection
 				if (connection != null) {
+					message += "Got connection to database.<br/>";
 					// get current bills from database
 					Vector<Bill> allBills = new Vector<Bill>();
 					Vector<Integer> runningIds = new Vector<Integer>();
@@ -111,44 +111,38 @@ public class DataCollection extends HttpServlet{
 							// add bills to database
 							int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
 							if (wereAdded != 0) {
-								message = "Did not complete bill adding successfully.\n";
-								output.concat(message);
+								message += "Did not complete bill adding successfully.<br/>";
 							}
 							else {
-								message = "Completed bill adding successfully.\n";
-								output.concat(message);
+								message += "Completed bill adding successfully.<br/>";
 							}
 							
 							// update legislator success/fail bill counts
 							int wasUpdated = updateStats(legIds, connection);
 							if (wasUpdated != 0) {
-								message = "Did not complete updating bill success/fail successfully.\n";
-								output.concat(message);
+								message += "Did not complete updating bill success/fail successfully.<br/>";
 							}
 							else {
-								message = "Completed updating bill success/fail and areas of concentration successfully.\n";
-								output.concat(message);
+								message += "Completed updating bill success/fail and areas of concentration successfully.<br/>";
 							}
 						}
 						else {
-							message = "Did not complete making a map of legislator names to IDs successfully.\n";
-								output.concat(message);
+							message += "Did not complete making a map of legislator names to IDs successfully.<br/>";
 						}
 					}
 					else {
-						message = "Did not complete getting all bills successfully.\n";
-								output.concat(message);
+						message += "Did not complete getting all bills successfully.<br/>";
 					}
 				}
-				output.concat("0");
+				message = "0";
 			} catch (Exception e) {
-				output.concat("1");	
+				message = "1";	
 			}
 			
 			try {
 				connection.close();
 			} catch (SQLException e) {
-				output.concat("1");
+				message = "1";
 			}
 		}
 		
@@ -191,8 +185,7 @@ public class DataCollection extends HttpServlet{
 					
 					//System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
 				}
-				String message = "Finished getting all bills.\n";
-				output.concat(message);
+				message += "Finished getting all bills.<br/>";
 			} catch (Exception e) {
 				e.printStackTrace();
 				return 1;
@@ -378,8 +371,7 @@ public class DataCollection extends HttpServlet{
 					String name = (String) e.getValue();
 					legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
 				}
-				String message = "Made legislator-id map.\n";
-				output.concat(message);
+				message += "Made legislator-id map.<br/>";
 			}
 			catch (Exception e) {
 				e.printStackTrace();

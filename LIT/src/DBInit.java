@@ -19,9 +19,10 @@ public class DBInit {
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
 					+ "user=root&password=ojmayonnaise");
-			
+			PreparedStatement pst;
+			/*
 			// create table for bills
-			PreparedStatement pst = connection.prepareStatement("CREATE TABLE Bills (" +
+			pst = connection.prepareStatement("CREATE TABLE Bills (" +
 																"Id int," +
 																"Title varchar(2083)," +
 																"Committee varchar(128)," +
@@ -40,7 +41,7 @@ public class DBInit {
 												"FailedBills int," +
 												"PRIMARY KEY (Id))");
 			pst.executeUpdate();
-			
+			**/
 			// populate legislator table
 			Properties legislators = new Properties();
 			legislators.load(new FileInputStream("./etc/legislators.properties"));
@@ -50,7 +51,7 @@ public class DBInit {
 				pst.setString(2, (String) leg.getValue());
 				pst.executeUpdate();	
 			}
-			
+			/*
 			// create table for categories
 			pst = connection.prepareStatement("CREATE TABLE Categories (" +
 												"Id int," +
@@ -103,7 +104,8 @@ public class DBInit {
 			// close connection
 			pst.close();
 			connection.close();
-			
+			reparedStatement**/
+			connection.close();
 			System.out.println("Successfully initialized db");
 			
 		} catch (Exception e) {

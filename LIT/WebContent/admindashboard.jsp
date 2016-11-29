@@ -15,18 +15,34 @@
     $(document).on("click", "#datacollection",
             function() {
     			$('#datacollection').attr('disabled','disabled');
+    			$('#opener').attr('disabled','disabled');
 				$.get("DataCollection", function(){});
 				var data = "";
-    			setInterval(function(){
-    				$.post("DataCollection", function(data) {
-      					if (data == "0") {
-      						clearInterval();
-      					}
-      					else {
-                    		$('#output').text(data);
-      					}
-    				})
-    			}, 5000);
+    			var interval = setInterval(function()
+    				{
+    				    $.ajax({
+    				        url: 'DataCollection',
+    				        data: data,
+    				        type: 'post',
+    				        success: function(data){ 
+    				        	if (data == "0") {
+    				        		$('#output').text("Finished successfully!");
+    				        		$('#datacollection').attr('enabled','enabled');
+    				        		$('#opener').attr('enabled','enabled');
+    				        		clearInterval(interval);
+    				        	}	
+    				        	else if (data == "1") {
+    				        		$('#output').text("Finished with errors!");
+    				        		$('#datacollection').attr('enabled','enabled');
+    				        		$('#opener').attr('enabled','enabled');
+    				        		clearInterval(interval);
+    				        	}
+    				        	else {
+    				        		$('#output').text(data);
+    				        	}
+    				        }
+       					});
+    				}, 2500);
             });
     </script>
     <button id="datacollection">Start DataCollection</button>
