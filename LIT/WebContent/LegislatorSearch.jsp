@@ -12,7 +12,7 @@
 	<h1><u>Legislator Name Search Page</u></h1>
 
 	<%
-	// get user selected Legislator Name from Drop Down List
+	// get user selected Legislator Name from Drop Down List 
 	String LegName = request.getParameter("legislator");
 	
 	int leg = Integer.parseInt(LegName);
