@@ -17,6 +17,7 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -51,7 +52,7 @@ public class DataCollection extends HttpServlet{
 	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
 	final static String[] failedStatuses = {"Vetoed by Governor", "Committee recommended measure be held for further study"};
 	
-	String message = "";
+	ConcurrentLinkedQueue<String> message = new ConcurrentLinkedQueue<String>();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     @SuppressWarnings("rawtypes")
 	Future future;
@@ -81,7 +82,8 @@ public class DataCollection extends HttpServlet{
 		else {
 			response.setContentType("text/plain");
 			response.setCharacterEncoding("UTF-8");
-			response.getWriter().write(message);
+			if (!message.isEmpty())
+				response.getWriter().write(message.poll());
 		}
 	}
 	
@@ -94,7 +96,7 @@ public class DataCollection extends HttpServlet{
 			
 				// only proceed with a connection
 				if (connection != null) {
-					message += "Got connection to database.\n";
+					message.add("Got connection to database.");
 					// get current bills from database
 					Vector<Bill> allBills = new Vector<Bill>();
 					Vector<Integer> runningIds = new Vector<Integer>();
@@ -112,37 +114,39 @@ public class DataCollection extends HttpServlet{
 							// add bills to database
 							int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
 							if (wereAdded != 0) {
-								message += "Did not complete bill adding successfully.\n";
+								message.add("Did not complete bill adding successfully.");
 							}
 							else {
-								message += "Completed bill adding successfully.\n";
+								message.add("Completed bill adding successfully.");
 							}
 							
 							// update legislator success/fail bill counts
 							int wasUpdated = updateStats(legIds, connection);
 							if (wasUpdated != 0) {
-								message += "Did not complete updating bill success/fail successfully.\n";
+								message.add("Did not complete updating bill success/fail successfully.");
 							}
 							else {
-								message += "Completed updating bill success/fail and areas of concentration successfully.\n";
+								message.add("Completed updating bill success/fail and areas of concentration successfully.");
 							}
 						}
 						else {
-							message += "Did not complete making a map of legislator names to IDs successfully.\n";
+							message.add("Did not complete making a map of legislator names to IDs successfully.");
 						}
 					}
 					else {
-						message += "Did not complete getting all bills successfully.\n";
+						message.add("Did not complete getting all bills successfully.");
 					}
 				}
 			} catch (Exception e) {
-				message = "1";	
+				message.add("1");
+				executor.shutdown();
 			}
 			
 			try {
 				connection.close();
 			} catch (SQLException e) {
-				message = "1";
+				message.add("1");
+				executor.shutdown();
 			}
 		}
 		
@@ -185,7 +189,7 @@ public class DataCollection extends HttpServlet{
 					
 					//System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
 				}
-				message += "Finished getting all bills.\n";
+				message.add("Finished getting all bills.");
 			} catch (Exception e) {
 				System.out.println("Crashed during bill collection.");
 				e.printStackTrace();
@@ -373,7 +377,7 @@ public class DataCollection extends HttpServlet{
 					String name = (String) e.getValue();
 					legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
 				}
-				message += "Made legislator-id map.\n";
+				message.add("Made legislator-id map.");
 			}
 			catch (Exception e) {
 				System.out.println("Crash during legislator-id map build.");

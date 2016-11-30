@@ -37,12 +37,12 @@
     				        		$('#opener').attr('enabled','enabled');
     				        		clearInterval(interval);
     				        	}
-    				        	else {
-    				        		$('#output').text(data);
+    				        	else if (data.length > 1){
+    				        		$('#output').append(data +'<br/>');
     				        	}
     				        }
        					});
-    				}, 2500);
+    				}, 10000);
             });
     </script>
     <button id="datacollection">Start DataCollection</button>
