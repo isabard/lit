@@ -73,6 +73,7 @@ public class DataCollection extends HttpServlet{
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		if (future.isDone()) {
+			executor.shutdown();
 			response.setContentType("text/plain");
 			response.setCharacterEncoding("UTF-8");
 			response.getWriter().write("0");
@@ -93,7 +94,7 @@ public class DataCollection extends HttpServlet{
 			
 				// only proceed with a connection
 				if (connection != null) {
-					message += "Got connection to database.<br/>";
+					message += "Got connection to database.\n";
 					// get current bills from database
 					Vector<Bill> allBills = new Vector<Bill>();
 					Vector<Integer> runningIds = new Vector<Integer>();
@@ -111,30 +112,29 @@ public class DataCollection extends HttpServlet{
 							// add bills to database
 							int wereAdded = addUpdate(allBills, existingBills, connection, legIds);
 							if (wereAdded != 0) {
-								message += "Did not complete bill adding successfully.<br/>";
+								message += "Did not complete bill adding successfully.\n";
 							}
 							else {
-								message += "Completed bill adding successfully.<br/>";
+								message += "Completed bill adding successfully.\n";
 							}
 							
 							// update legislator success/fail bill counts
 							int wasUpdated = updateStats(legIds, connection);
 							if (wasUpdated != 0) {
-								message += "Did not complete updating bill success/fail successfully.<br/>";
+								message += "Did not complete updating bill success/fail successfully.\n";
 							}
 							else {
-								message += "Completed updating bill success/fail and areas of concentration successfully.<br/>";
+								message += "Completed updating bill success/fail and areas of concentration successfully.\n";
 							}
 						}
 						else {
-							message += "Did not complete making a map of legislator names to IDs successfully.<br/>";
+							message += "Did not complete making a map of legislator names to IDs successfully.\n";
 						}
 					}
 					else {
-						message += "Did not complete getting all bills successfully.<br/>";
+						message += "Did not complete getting all bills successfully.\n";
 					}
 				}
-				message = "0";
 			} catch (Exception e) {
 				message = "1";	
 			}
@@ -185,8 +185,9 @@ public class DataCollection extends HttpServlet{
 					
 					//System.out.println("Finished " + completedCats + "/" + numCats + " categories.");
 				}
-				message += "Finished getting all bills.<br/>";
+				message += "Finished getting all bills.\n";
 			} catch (Exception e) {
+				System.out.println("Crashed during bill collection.");
 				e.printStackTrace();
 				return 1;
 			}
@@ -350,6 +351,7 @@ public class DataCollection extends HttpServlet{
 					//System.out.println("Updated legislator " + leg);
 				}
 			} catch (Exception e) {
+				System.out.print("Crash during legislator update.");
 				e.printStackTrace();
 				return 1;
 			}
@@ -371,9 +373,10 @@ public class DataCollection extends HttpServlet{
 					String name = (String) e.getValue();
 					legIds.put(name.substring(0, name.indexOf(",")), Integer.parseInt((String) e.getKey()));
 				}
-				message += "Made legislator-id map.<br/>";
+				message += "Made legislator-id map.\n";
 			}
 			catch (Exception e) {
+				System.out.println("Crash during legislator-id map build.");
 				e.printStackTrace();
 				return 1;
 			}
@@ -553,6 +556,7 @@ public class DataCollection extends HttpServlet{
 					}
 				}
 			} catch (Exception e) {
+				System.out.println("Crash during bill add/update.");
 				e.printStackTrace();
 				return 1;
 			}
@@ -571,7 +575,7 @@ public class DataCollection extends HttpServlet{
 			
 			try {
 				// get the page's HTML
-				Document doc = Jsoup.parse(Jsoup.connect(url).get().html());
+				Document doc = Jsoup.parse(Jsoup.connect(url).timeout(10*1000).get().html());
 				
 				// if no bills exist in the category, just skip it
 				if (doc.toString().contains("Total Bills: 0") && doc.toString().contains("No Bills Met this Criteria")) {
@@ -675,6 +679,7 @@ public class DataCollection extends HttpServlet{
 					//System.out.println(b.toString());
 					
 			} catch (IOException e) {
+				System.out.print("Crash during category fetch.");
 				e.printStackTrace();
 				return 1;
 			}
