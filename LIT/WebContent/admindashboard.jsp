@@ -1,5 +1,14 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+    
+<%
+/**
+* This class handles the Admin Dashboard.
+* Provides a button to initiate the data collection sequence
+* as well as providing access to the Omitted Words List
+* Written by Joel Galva
+*/
+%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
