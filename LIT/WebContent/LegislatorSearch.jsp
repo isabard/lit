@@ -13,12 +13,10 @@
 
 	<%
 	// get user selected Legislator Name from Drop Down List
-	String LegName = request.getParameter("legislator");
+	int leg = Integer.parseInt(request.getParameter("legislator"));
 	
-	int leg = Integer.parseInt(LegName);
-	
-	// get list of bills from DB
-	Class.legName("com.mysql.jdbc.Driver").newInstance();
+	// get info from "Legislators" table in database.
+	Class.forName("com.mysql.jdbc.Driver").newInstance();
 	Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
 	+ "user=root&password=ojmayonnaise");
 	PreparedStatement pst = connection.prepareStatement
@@ -26,30 +24,46 @@
 	pst.setInt(1, leg);
 	ResultSet rs = pst.executeQuery();
 	
-	// print list of bills
+	// Assign local variables to values from "Legislators" table in DB
 	rs.next();
 	
 	String DbLegName = rs.getString("Name");
+	String[] ConcenCatNameArray = new String[3];
+	int[] concenCatArray = new int[3];
+	
 	int passedBills = rs.getInt("PassedBills");
 	int failedBills = rs.getInt("FailedBills");
+	double passFailRate = passedBills / failedBills;
+	
+	// get info from "Concentrations" table in DB
+	PreparedStatement pst1 = connection.prepareStatement
+			("SELECT Name FROM Concentrations WHERE Id = ?");
+	pst1.setInt(1, leg);
+	ResultSet rs1 = pst.executeQuery();
+	
+	// Set local array to legislators top three areas of 
+	// concentration
+	int i = 0;
+	while(rs1.next())
+	{
+		concenCatArray[i] = rs.getInt("Name");
+		
+		// take category code from "Concentrations" table and 
+		// use the "Categories" table to decode code while
+		// setting return strings in array
+		PreparedStatement pst2 = connection.prepareStatement
+				("SELECT Category FROM Categories WHERE Id = ?");
+		pst2.setInt(1, concenCatArray[i]);
+		ResultSet rs2 = pst.executeQuery();
+		
+		ConcenCatNameArray[i] = rs.getString("Category");
+		
+		i++;
+	}
+	
 	
 	out.print("<br/><br/>");
-	out.print("<form name=\"submitForm\" method=\"post\" action=\"legislatorprofile.jsp\">" +
-				"<input type=\"hidden\" name=\"DbLegNamer\" value=\"" + DbLegName + "\">" +
-		    	"<A HREF=\"javascript:document.submitForm.submit()\">legislator Name " + DbLegName + "</A>" +
-				"</form>");
-	
-	out.print("<br/><br/>");
-	out.print("<form name=\"submitForm\" method=\"post\" action=\"legislatorprofile.jsp\">" +
-				"<input type=\"hidden\" name=\"passedBills\" value=\"" + passedBills + "\">" +
-		    	"<A HREF=\"javascript:document.submitForm.submit()\">Passed Bills " + passedBills + "</A>" +
-				"</form>");
-	
-	out.print("<br/><br/>");
-	out.print("<form name=\"submitForm\" method=\"post\" action=\"legislatorprofile.jsp\">" +
-				"<input type=\"hidden\" name=\"failedBills\" value=\"" + failedBills + "\">" +
-		    	"<A HREF=\"javascript:document.submitForm.submit()\">Failed Bills " + failedBills + "</A>" +
-				"</form>");
+
 	%>
 	</div>
 </body>
