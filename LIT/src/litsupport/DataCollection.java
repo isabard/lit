@@ -37,11 +37,15 @@ import javax.servlet.http.HttpServletResponse;
 /**
  * This class accomplishes all of the necessary steps to fetch and parse data from the external source
  * and update the database, including processing data for word clouds and areas of concentration.
+ * Further, it has a servet wrapper to interface with the admindashboard jsp via AJAX requests, and the
+ * actual data collection itself is a Runnable compliant class so that it can execute on its own
+ * thread without the triggering method blocking until it is done.
  * @author scott
  *
  */
 @WebServlet("/DataCollection")
 public class DataCollection extends HttpServlet{
+	// variable needed to comply with HttpServlet interface
 	private static final long serialVersionUID = 1L;
 	// base link to fetch data from source 
 	final static String baseLink = "http://status.rilin.state.ri.us/bill_history_report.aspx?year=2016";
@@ -52,15 +56,20 @@ public class DataCollection extends HttpServlet{
 	final static String[] successStatuses = {"Signed by Governor", "Effective without Governor's signature"};
 	final static String[] failedStatuses = {"Vetoed by Governor", "Committee recommended measure be held for further study"};
 	
+	// queue of status messages that are fetched for the admindashboard
 	ConcurrentLinkedQueue<String> message = new ConcurrentLinkedQueue<String>();
+	// executor for the data collection to run on its own thread
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // object to check for whether or not the data collection thread has completed
     @SuppressWarnings("rawtypes")
 	Future future;
 	
+    // constructor does not need anything for this situation
 	public DataCollection() {
 	}
 	
 	/**
+	 * Method called when a get AJAX request comes through to start the data collection thread.
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -70,6 +79,8 @@ public class DataCollection extends HttpServlet{
 	}
 
 	/**
+	 * Method called when a post AJAX request comes through to return the message at the
+	 * front of the queue or a 0 to signify a completed collection thread.
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -87,7 +98,16 @@ public class DataCollection extends HttpServlet{
 		}
 	}
 	
+	/**
+	 * Class to implement the Runnable interface around the data collection tasks so
+	 * they execute in their own thread.
+	 * @author scott
+	 *
+	 */
 	public class Collect implements Runnable {	
+		/**
+		 * Only method required in a Runnable class.
+		 */
 		public void run() {
 			// connect to database
 			Connection connection = getConnection();
@@ -137,19 +157,32 @@ public class DataCollection extends HttpServlet{
 						message.add("Did not complete getting all bills successfully.");
 					}
 				}
-			} catch (Exception e) {
+			}
+			// catch thrown exceptions during normal running that are not in the individual methods
+			catch (Exception e) {
 				message.add("1");
 				executor.shutdown();
 			}
-			
+			// try to close the connection
 			try {
 				connection.close();
-			} catch (SQLException e) {
+			} 
+			// catch in the rare instance where the connection cannot be closed
+			catch (SQLException e) {
 				message.add("1");
 				executor.shutdown();
 			}
 		}
 		
+		/**
+		 * Method to iterate through all categories and fetch bils, adding them and their ids to
+		 * running lists.
+		 * @param connection
+		 * @param allBills
+		 * @param runningIds
+		 * @param existingBills
+		 * @return
+		 */
 		int getBills(Connection connection, Vector<Bill> allBills, Vector<Integer> runningIds, Vector<Integer> existingBills) {
 			Properties categoryPairs = new Properties();
 			try {
@@ -214,7 +247,8 @@ public class DataCollection extends HttpServlet{
 		}
 		
 		/**
-		 * Method to count the successful and failed bills for each legislator and update the database.
+		 * Method to count the successful and failed bills for each legislator and update the database,
+		 * as well as update their areas of concentration and word clouds.
 		 * @param legIds
 		 * @param connection
 		 */
@@ -389,7 +423,8 @@ public class DataCollection extends HttpServlet{
 		}
 		
 		/**
-		 * Method to take fetched bills and add/update the database with them.
+		 * Method to take fetched bills and add/update the database with them, including
+		 * constructing the word clouds of new bills.
 		 * 
 		 * @param allBills
 		 * @param existingBills
@@ -569,7 +604,7 @@ public class DataCollection extends HttpServlet{
 		}
 		
 		/**
-		 * Method to fetch a given category's (by id's) bills
+		 * Method to fetch a given category's (by id) bills
 		 * @param category
 		 * @param bills
 		 */

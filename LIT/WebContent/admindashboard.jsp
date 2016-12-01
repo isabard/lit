@@ -8,16 +8,19 @@
 </head>
 <body>
 	<h1>Administrator Dashboard</h1>
-	<!--  Have to add in logic to actually initiate the data collection -->>
+	<!--  Logic to initiate the data collection and handle/print responses. -->
 	<script type="text/javascript"
     src="http://code.jquery.com/jquery-latest.min.js"></script>
 	<script>
     $(document).on("click", "#datacollection",
             function() {
+    			// turn off the buttons during the collection so only one task goes on at a time
     			$('#datacollection').attr('disabled','disabled');
     			$('#opener').attr('disabled','disabled');
+    			// start the data collection
 				$.get("DataCollection", function(){});
 				var data = "";
+				// request status on an interval
     			var interval = setInterval(function()
     				{
     				    $.ajax({
@@ -25,18 +28,21 @@
     				        data: data,
     				        type: 'post',
     				        success: function(data){ 
+    				        	// if finished, turn buttons back on and exit interval loop
     				        	if (data == "0") {
-    				        		$('#output').text("Finished successfully!");
+    				        		$('#output').append("Finished successfully!");
     				        		$('#datacollection').attr('enabled','enabled');
     				        		$('#opener').attr('enabled','enabled');
     				        		clearInterval(interval);
     				        	}	
+    				        	// if finished with error, do the same as above with message
     				        	else if (data == "1") {
-    				        		$('#output').text("Finished with errors!");
+    				        		$('#output').append("Finished with errors!");
     				        		$('#datacollection').attr('enabled','enabled');
     				        		$('#opener').attr('enabled','enabled');
     				        		clearInterval(interval);
     				        	}
+    				        	// otherwise, print status to div
     				        	else if (data.length > 1){
     				        		$('#output').append(data +'<br/>');
     				        	}
@@ -45,6 +51,7 @@
     				}, 10000);
             });
     </script>
+    <!-- Button to start data collection and div where status will be printed. -->
     <button id="datacollection">Start DataCollection</button>
     <div id="output"></div>
 		
