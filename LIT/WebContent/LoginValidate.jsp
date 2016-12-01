@@ -7,7 +7,9 @@
         <title>Login Validate</title>
     </head>
     <body>
+    
  <%
+ 	
 	try{
 		String username = request.getParameter("username");
 		String password = request.getParameter("password");
@@ -23,7 +25,7 @@
 		if((username.equals("admin") && password.equals("admin")))
             {
             session.setAttribute("username",username);
-            response.sendRedirect("Home.jsp");
+            response.sendRedirect("admindashboard.jsp");
             }
 		else
 			out.println("Invalid login");
