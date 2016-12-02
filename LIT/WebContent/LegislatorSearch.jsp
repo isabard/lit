@@ -28,42 +28,56 @@
 	rs.next();
 	
 	String DbLegName = rs.getString("Name");
-	String[] ConcenCatNameArray = new String[3];
-	int[] concenCatArray = new int[3];
+	String[] legWordCloud = new String[10];
+	String[] topThreeCats = new String[3];
 	
 	int passedBills = rs.getInt("PassedBills");
 	int failedBills = rs.getInt("FailedBills");
-	double passFailRate = passedBills / failedBills;
+	int totalBills = passedBills + failedBills;
+	double successRate = (100 * ((totalBills - passedBills) / totalBills));
 	
 	// get info from "Concentrations" table in DB
-	PreparedStatement pst1 = connection.prepareStatement
-			("SELECT Name FROM Concentrations WHERE Id = ?");
-	pst1.setInt(1, leg);
-	ResultSet rs1 = pst.executeQuery();
+	pst = connection.prepareStatement
+			("SELECT c.Name FROM Concentrations AS co INNER JOIN Categories AS c.Id = co.Category WHERE co.Legislator = ?");
+	pst.setInt(1, leg);
+	rs = pst.executeQuery();
 	
-	// Set local array to legislators top three areas of 
-	// concentration
+	// Sets local array to legislators top three areas of concentration
 	int i = 0;
-	while(rs1.next())
+	while(rs.next())
 	{
-		concenCatArray[i] = rs.getInt("Name");
-		
-		// take category code from "Concentrations" table and 
-		// use the "Categories" table to decode code while
-		// setting return strings in array
-		PreparedStatement pst2 = connection.prepareStatement
-				("SELECT Category FROM Categories WHERE Id = ?");
-		pst2.setInt(1, concenCatArray[i]);
-		ResultSet rs2 = pst.executeQuery();
-		
-		ConcenCatNameArray[i] = rs.getString("Category");
-		
+		topThreeCats[i] = rs.getString("Name");		
 		i++;
 	}
 	
+	// get info from "LegWordClouds" table in DB
+	pst = connection.prepareStatement("SELECT Word FROM legWordClouds WHERE Legislator = ?");
+	pst.setInt(1, leg);
+	rs = pst.executeQuery();
 	
-	out.print("<br/><br/>");
-
+	// Set local array to legislators word cloud
+	i = 0;
+	while(rs.next())
+	{
+		legWordCloud[i] = rs.getString("Word");		
+		i++;
+	}
+	
+	// Output the results
+	out.print("Legislator Name: " + DbLegName);
+	out.print("Passed Bills: " + passedBills);
+	out.print("Failed Bills: " + failedBills);
+	out.print("Success Rate: " + successRate);
+	out.print("Legislator Word Cloud: ");
+	
+	for(i=0; i < legWordCloud.length; i++)
+		out.print('\n' + legWordCloud[i]);
+	
+	out.print('\n');
+	out.print("Legislator Top Three Categories: ");
+	for(i=0; i < topThreeCats.length; i++)
+		out.print('\n' + topThreeCats[i]);
+	
 	%>
 	</div>
 </body>
