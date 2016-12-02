@@ -25,7 +25,7 @@
             function() {
     			// turn off the buttons during the collection so only one task goes on at a time
     			$('#datacollection').attr('disabled','disabled');
-    			$('#opener').attr('disabled','disabled');
+    			$('#editowl').attr('disabled','disabled');
     			// start the data collection
 				$.get("DataCollection", function(){});
 				var data = "";
@@ -41,14 +41,14 @@
     				        	if (data == "0") {
     				        		$('#output').append("Finished successfully!");
     				        		$('#datacollection').attr('enabled','enabled');
-    				        		$('#opener').attr('enabled','enabled');
+    				        		$('#editowl').attr('enabled','enabled');
     				        		clearInterval(interval);
     				        	}	
     				        	// if finished with error, do the same as above with message
     				        	else if (data == "1") {
     				        		$('#output').append("Finished with errors!");
     				        		$('#datacollection').attr('enabled','enabled');
-    				        		$('#opener').attr('enabled','enabled');
+    				        		$('#editowl').attr('enabled','enabled');
     				        		clearInterval(interval);
     				        	}
     				        	// otherwise, print status to div
@@ -64,43 +64,63 @@
     <button id="datacollection">Start DataCollection</button>
     <div id="output"></div>
 		
-	<!-- Add in logic to pull the omitted words list -->>
-	<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
-  	<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
-  	<script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
-	
-	<div id="dialog">
-  		<form action="form_action.asp">
-			<select name="words" multiple>
-  				<option value="word1">word1</option>
-  				<option value="word2">word2</option>
-  				<option value="word3">word3</option>
-  				<option value="word4">word4</option>
-			</select>
-			<input type="submit">
-		</form>
-	</div>
- 
-	<button id="opener">Edit Omitted Words</button>
-	<script type="text/javascript">
-		$(function() {
-    		$( "#dialog" ).dialog({
-     		 autoOpen: false,
-     		 show: {
-        		effect: "blind",
-        		duration: 1000
-      		},
-      		hide: {
-        		effect: "explode",
-        		duration: 1000
-      		}
-    	});
- 
-    	$( "#opener" ).click(function() {
-      		$( "#dialog" ).dialog( "open" );
-    	});
-  		});
+	<!-- Edit Ommitted Words List -->
+	<script>
+	 $(document).on("click", "#editowl", 
+			 function() {
+		 		// turn off the buttons during the collection so only one task goes on at a time
+    			$('#datacollection').attr('disabled','disabled');
+    			$('#editowl').attr('disabled','disabled');
+    			// get the current list
+    			var data = "";
+    			$.ajax({
+    					url: 'EditOmmittedWordsList',
+    					data: data,
+    					type: 'get',
+    					success: function(data) {
+	    					// add elements for text and add/remove buttons
+	    					var textbox = $('<input type="text" name="word" />');
+	    					var add = $('<input type="button" value="add"/>');
+	    					var remove = $('<input type="button" value="remove"/>');
+	    					$('#owloutput').text("<br>" + textbox + "<br>" + add + "<br>" + remove);
+	    					$('#owloutput').append("Current words:<br>" + data);
+	    					// add to list and give output
+	    					$(document).on("click", "#add", 
+	    							function() {
+	    							$.ajax({
+	    								url: 'EditOmmittedWordsList',
+	    								data: {Type:'Remove',Word:$('#word').val()},
+	    								type: 'post',
+	    								success: function(responseText){
+	    									$('#owloutput').text(responseText);
+	        				        		$('#datacollection').attr('enabled','enabled');
+	        				        		$('#editowl').attr('enabled','enabled');
+	    								}
+	    							});
+	    					});
+	    					// remove from list and give output
+	    					$(document).on("click", "#remove", 
+	    							function() {
+	    								$.ajax({
+	    									url: 'EditOmmittedWordsList',
+	    									data: {Type:'Remove',Word:$('#word').val()},
+	    									type: 'post',
+	    									success: function(responseText){
+	    										$('#owloutput').text(responseText);
+	            				        		$('#datacollection').attr('enabled','enabled');
+	            				        		$('#editowl').attr('enabled','enabled');
+	    									}
+	    								});
+	    					});
+    					},
+    					error: function(request, status, error) {alert(request.responseText);}
+    			});
+	 });
 	</script>
+	<!-- Button to edit OWL and status print -->
+	<button id="editowl">Edit OmmittedWordsList</button>
+	<div id ="owloutput"></div>
+	
 	<a href="logout.jsp">Logout</a>
 </body>
 </html>

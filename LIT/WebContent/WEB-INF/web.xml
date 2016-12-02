@@ -4,9 +4,12 @@
   <welcome-file-list>
     <welcome-file>home.jsp</welcome-file>
   </welcome-file-list>
-  
   <servlet>
-  	<servlet-name>DataCollection</servlet-name>
-  	<servlet-class>litsupport.DataCollection</servlet-class>
+    <servlet-name>DataCollection</servlet-name>
+    <servlet-class>litsupport.DataCollection</servlet-class>
+  </servlet>
+  <servlet>
+  	<servlet-name>EditOmmittedWordsList</servlet-name>
+  	<servlet-class>litsupport.EditOmmittedWordsList</servlet-class>
   </servlet>
 </web-app>
