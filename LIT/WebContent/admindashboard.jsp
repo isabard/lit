@@ -14,12 +14,11 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Admin Dashboard</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
 </head>
 <body>
 	<h1>Administrator Dashboard</h1>
 	<!--  Logic to initiate the data collection and handle/print responses. -->
-	<script type="text/javascript"
-    src="http://code.jquery.com/jquery-latest.min.js"></script>
 	<script>
     $(document).on("click", "#datacollection",
             function() {
@@ -78,48 +77,76 @@
     					data: data,
     					type: 'get',
     					success: function(data) {
-	    					// add elements for text and add/remove buttons
-	    					var textbox = $('<input type="text" name="word" />');
-	    					var add = $('<input type="button" value="add"/>');
-	    					var remove = $('<input type="button" value="remove"/>');
-	    					$('#owloutput').text("<br>" + textbox + "<br>" + add + "<br>" + remove);
-	    					$('#owloutput').append("Current words:<br>" + data);
-	    					// add to list and give output
-	    					$(document).on("click", "#add", 
-	    							function() {
-	    							$.ajax({
-	    								url: 'EditOmmittedWordsList',
-	    								data: {Type:'Remove',Word:$('#word').val()},
-	    								type: 'post',
-	    								success: function(responseText){
-	    									$('#owloutput').text(responseText);
-	        				        		$('#datacollection').attr('enabled','enabled');
-	        				        		$('#editowl').attr('enabled','enabled');
-	    								}
-	    							});
-	    					});
-	    					// remove from list and give output
-	    					$(document).on("click", "#remove", 
-	    							function() {
-	    								$.ajax({
-	    									url: 'EditOmmittedWordsList',
-	    									data: {Type:'Remove',Word:$('#word').val()},
-	    									type: 'post',
-	    									success: function(responseText){
-	    										$('#owloutput').text(responseText);
-	            				        		$('#datacollection').attr('enabled','enabled');
-	            				        		$('#editowl').attr('enabled','enabled');
-	    									}
-	    								});
-	    					});
+    						// add elements for text and add/remove buttons
+	    					$('#add').prop('disabled', false);
+	    					$('#remove').prop('disabled', false);
+	    					$('#cancel').prop('disabled',false);
+	    					$('#owloutput').text("Current words:");
+	    					$('#owloutput').append('<br>');
+	    					$('#owloutput').append(data);
     					},
     					error: function(request, status, error) {alert(request.responseText);}
     			});
 	 });
+	 </script>
+	 <script>
+	// add to list and give output
+		$(document).on("click", "#add", 
+				function() {
+				$.ajax({
+					url: 'EditOmmittedWordsList',
+					data: {Type:'Add',Word:$('#word').val()},
+					type: 'post',
+					success: function(responseText){
+						$('#owloutput').text(responseText);
+		        		$('#datacollection').prop('disabled', false);
+		        		$('#editowl').prop('disabled', false);
+		        		$('#add').prop('disabled',true);
+		        		$('#remove').prop('disabled',true);
+		        		$('#cancel').prop('disabled',true);
+					}
+				});
+		});
+	</script>
+	<script>
+		// remove from list and give output
+		$(document).on("click", "#remove", 
+				function() {
+					$.ajax({
+						url: 'EditOmmittedWordsList',
+						data: {Type:'Remove',Word:$('#word').val()},
+						type: 'post',
+						success: function(responseText){
+							$('#owloutput').text(responseText);
+							$('#datacollection').prop('disabled', false);
+			        		$('#editowl').prop('disabled', false);
+			        		$('#add').prop('disabled',true);
+			        		$('#remove').prop('disabled',true);
+			        		$('#cancel').prop('disabled',true);
+						}
+					});
+		});
+	</script>
+	<script>
+	// cancel edit owl
+	$(document).on("click", "#cancel", 
+			function(){
+				$('#owloutput').text("Cancelled EditOmmittedWordsList");
+				$('#datacollection').prop('disabled', false);
+				$('#editowl').prop('disabled', false);
+				$('#add').prop('disabled',true);
+				$('#remove').prop('disabled',true);
+				$('#cancel').prop('disabled',true);
+	});
 	</script>
 	<!-- Button to edit OWL and status print -->
 	<button id="editowl">Edit OmmittedWordsList</button>
-	<div id ="owloutput"></div>
+	<br>
+	<input type="text" id="word" name="word" />
+	<button id="add" disabled>Add</button>
+	<button id="remove" disabled>Remove</button>
+	<button id="cancel" disabled>Cancel</button>
+	<div id ="owloutput" style='overflow:auto;width:800px;height:250px' ></div>
 	
 	<a href="logout.jsp">Logout</a>
 </body>

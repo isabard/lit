@@ -25,7 +25,6 @@ public class EditOmmittedWordsList extends HttpServlet {
      * @see HttpServlet#HttpServlet()
      */
     public EditOmmittedWordsList() {
-        super();
     }
 
 	/**
@@ -57,80 +56,86 @@ public class EditOmmittedWordsList extends HttpServlet {
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse response)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		String message;
 		// get type of operation and word to add/remove
 		String type = (String) request.getParameter("Type");
 		String word = (String) request.getParameter("Word");
-		// remove possible leading/trailing whitespace and put to lowercase
-		word = word.trim();
-		word = word.toLowerCase();
-		String message;
-		try {
-			// open current ommittedwordslist
-			InputStream fis = getServletContext().getResourceAsStream("/WEB-INF/ommittedwordslist.treeset");
-			ObjectInputStream ois = new ObjectInputStream(fis);
-			@SuppressWarnings("unchecked")
-			TreeSet<String> owl = (TreeSet<String>) ois.readObject();
-			ois.close();
-			fis.close();
-			
-			// add word
-			if (type.equals("Add")) {
-				// check to see if word is already in list
-				if (owl.contains(word)) {
-					message = word + " already exists in the list!";
+		// make sure word isn't null
+		if (word == null) {
+			message = "No word entered!";
+		}
+		else {
+			// remove possible leading/trailing whitespace and put to lowercase
+			word = word.trim();
+			word = word.toLowerCase();
+			try {
+				// open current ommittedwordslist
+				InputStream fis = getServletContext().getResourceAsStream("/WEB-INF/ommittedwordslist.treeset");
+				ObjectInputStream ois = new ObjectInputStream(fis);
+				@SuppressWarnings("unchecked")
+				TreeSet<String> owl = (TreeSet<String>) ois.readObject();
+				ois.close();
+				fis.close();
+				
+				// add word
+				if (type.equals("Add")) {
+					// check to see if word is already in list
+					if (owl.contains(word)) {
+						message = word + " already exists in the list!";
+					}
+					else {
+						// make sure it's a valid word 
+						if (word.matches("[a-zA-Z]+")) {
+							// if so, add it and save
+							try {
+								owl.add(word);
+								FileOutputStream fos = new FileOutputStream(new File(getServletContext().getResource("/WEB-INF/ommittedwordslist.treeset").toURI()));
+								ObjectOutputStream oos = new ObjectOutputStream(fos);
+								oos.writeObject(owl);
+								oos.close();
+								fos.close();
+								message = "Added " + word + " to list!";
+							} catch (URISyntaxException e) {
+								message = "Couldn't write to list!";
+							}
+						}
+						else {
+							message = "Invalid word!";
+						}
+					}
 				}
-				else {
-					// make sure it's a valid word 
-					if (word.matches("[a-zA-Z]")) {
-						// if so, add it and save
-						try {
-							owl.add(word);
-							FileOutputStream fos = new FileOutputStream(new File(getServletContext().getResource("/WEB-INF/ommittedwordslist.treeset").toURI()));
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(owl);
-							oos.close();
-							fos.close();
-							message = "Added " + word + " to list!";
-						} catch (URISyntaxException e) {
-							message = "Couldn't write to list!";
+				// remove wrod
+				else if (type.equals("Remove")) {
+					// check to see if it's already in list
+					if (owl.contains(word)) {
+						// make sure it's a valid word
+						if (word.matches("[a-zA-Z]+")){
+							try {
+								owl.remove(word);
+								FileOutputStream fos = new FileOutputStream(new File(getServletContext().getResource("/WEB-INF/ommittedwordslist.treeset").toURI()));
+								ObjectOutputStream oos = new ObjectOutputStream(fos);
+								oos.writeObject(owl);
+								oos.close();
+								fos.close();
+								message = "Removed " + word + " from list!";
+							} catch (URISyntaxException e) {
+								message = "Couldn't write to list!";
+							}
+						}
+						else {
+							message = "Invalid word!";
 						}
 					}
 					else {
-						message = "Invalid word!";
-					}
-				}
-			}
-			// remove wrod
-			else if (type.equals("Remove")) {
-				// check to see if it's already in list
-				if (owl.contains(word)) {
-					// make sure it's a valid word
-					if (word.matches("[a-zA-Z")){
-						try {
-							owl.remove(word);
-							FileOutputStream fos = new FileOutputStream(new File(getServletContext().getResource("/WEB-INF/ommittedwordslist.treeset").toURI()));
-							ObjectOutputStream oos = new ObjectOutputStream(fos);
-							oos.writeObject(owl);
-							oos.close();
-							fos.close();
-							message = "Removed " + word + " from list!";
-						} catch (URISyntaxException e) {
-							message = "Couldn't write to list!";
-						}
-					}
-					else {
-						message = "Invalid word!";
+						message = word + " was not in the list to remove!";
 					}
 				}
 				else {
-					message = word + " was not in the list to remove!";
+					message = "Invalid arguments.";
 				}
+			} catch (ClassNotFoundException e) {
+				message = "Could not open ommitted words list";
 			}
-			else {
-				message = "Invalid arguments.";
-			}
-		} catch (ClassNotFoundException e) {
-			message = "Could not open ommitted words list";
 		}
 		response.setContentType("text/plain");
 		response.setCharacterEncoding("UTF-8");
