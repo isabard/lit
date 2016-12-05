@@ -20,6 +20,7 @@
 	<div id="main" align="center">
 	
 	<!-- Legislator Search -->
+	<b>Search by legislator:</b>
 	<form method="post" action="legislatorprofile.jsp">
                <select name="legislator" >
 				<option value="438">Abney, Marvin</option>
@@ -141,6 +142,7 @@
 	<br/>
 	
 	<!-- Bill Number Search -->
+	<b>Search by Bill number:</b>
 	<form method="post" action="billprofile.jsp">
 		<input type="text" name="billno" />
 		<input type="submit" value="Submit" />
@@ -148,6 +150,7 @@
 	<br/>
 	
 	<!-- Bill Date Search -->
+	<b>Search by date:</b>
 	<form method="post" action="billdatesearch.jsp">
 		<script src="https://code.jquery.com/jquery-1.12.4.js"></script>
   		<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
@@ -158,7 +161,7 @@
 		  } );
 		  </script>
 		<input type="text" id="datepickerStart" name="start" />
-		
+		to
 		<script>
 		$( function() {
 			$( "#datepickerEnd" ).datepicker();

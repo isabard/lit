@@ -23,8 +23,8 @@
     $(document).on("click", "#datacollection",
             function() {
     			// turn off the buttons during the collection so only one task goes on at a time
-    			$('#datacollection').attr('disabled','disabled');
-    			$('#editowl').attr('disabled','disabled');
+    			$('#datacollection').prop('disabled', true);
+		        $('#editowl').prop('disabled', true);
     			// start the data collection
 				$.get("DataCollection", function(){});
 				var data = "";
@@ -39,15 +39,15 @@
     				        	// if finished, turn buttons back on and exit interval loop
     				        	if (data == "0") {
     				        		$('#output').append("Finished successfully!");
-    				        		$('#datacollection').attr('enabled','enabled');
-    				        		$('#editowl').attr('enabled','enabled');
+    				        		$('#datacollection').prop('disabled', false);
+    				        		$('#editowl').prop('disabled', false);
     				        		clearInterval(interval);
     				        	}	
     				        	// if finished with error, do the same as above with message
     				        	else if (data == "1") {
     				        		$('#output').append("Finished with errors!");
-    				        		$('#datacollection').attr('enabled','enabled');
-    				        		$('#editowl').attr('enabled','enabled');
+    				        		$('#datacollection').prop('disabled', false);
+    				        		$('#editowl').prop('disabled', false);
     				        		clearInterval(interval);
     				        	}
     				        	// otherwise, print status to div

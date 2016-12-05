@@ -22,7 +22,7 @@
 		Class.forName("com.mysql.jdbc.Driver").newInstance();
 		Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
 				+ "user=root&password=ojmayonnaise");
-		PreparedStatement pst = connection.prepareStatement("SELECT username, password FROM users WHERE username=? and password=?");
+		PreparedStatement pst = connection.prepareStatement("SELECT Username, Password FROM users WHERE Username=? and Password=?");
 		pst.setString(1, username);
 		pst.setString(2, password);
 		ResultSet rs = pst.executeQuery();

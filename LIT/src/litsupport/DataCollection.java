@@ -5,11 +5,11 @@ import java.io.ObjectInputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.Map.Entry;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -437,8 +437,6 @@ public class DataCollection extends HttpServlet{
 			PreparedStatement pst;
 			ResultSet rs;
 			
-			SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
-			
 			try {
 				// get ommitted words list
 				InputStream fis = getServletContext().getResourceAsStream("/WEB-INF/ommittedwordslist.treeset");
@@ -449,11 +447,21 @@ public class DataCollection extends HttpServlet{
 				ois.close();
 				
 				for (Bill b : allBills) {
-					// temporary bad date fix
+					// fix rare bad dates
 					if (b.getStartDate() == null)
-						b.setStartDate("1/1/2016");
-					if (b.getLastActiveDate() == null)
-						b.setLastActiveDate("1/1/2016");
+						b.setStartDate("01/01/2016");
+					if ((b.getLastActiveDate() == null) && (b.getStartDate() != null))
+						b.setLastActiveDate(b.getStartDate());
+					else if (b.getLastActiveDate() == null)
+						b.setLastActiveDate("01/01/2016");
+					
+					// convert date to SQL format
+					String date = b.getStartDate();
+					date = date.substring(date.length() - 4) + "-" + date.substring(0, 2) + "-" + date.substring(3, 5);
+					Date start = Date.valueOf(date);
+					date = b.getLastActiveDate();
+					date = date.substring(date.length() - 4) + "-" + date.substring(0, 2) + "-" + date.substring(3, 5);
+					Date last = Date.valueOf(date);
 					
 					// see if bill is new or already in db
 					if (existingBills.contains(b.getId())) {
@@ -463,8 +471,8 @@ public class DataCollection extends HttpServlet{
 								+ "Link = ? WHERE Id = ?");
 						pst.setString(1, b.getTitle());
 						pst.setString(2, b.getCommittee());
-						pst.setDate(3, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
-						pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+						pst.setDate(3, start);
+						pst.setDate(4, last);
 						pst.setString(5, b.getStatus());
 						pst.setString(6, b.getLink());
 						pst.setInt(7, b.getId());
@@ -525,8 +533,8 @@ public class DataCollection extends HttpServlet{
 						pst.setInt(1, b.getId());
 						pst.setString(2, b.getTitle());
 						pst.setString(3, b.getCommittee());
-						pst.setDate(4, new java.sql.Date(sqlDate.parse((b.getStartDate())).getTime()));
-						pst.setDate(5, new java.sql.Date(sqlDate.parse((b.getLastActiveDate())).getTime()));
+						pst.setDate(4, start);
+						pst.setDate(5, last);
 						pst.setString(6, b.getStatus());
 						pst.setString(7, b.getLink());
 						pst.executeUpdate();
