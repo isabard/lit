@@ -38,7 +38,7 @@ form, table {
 			out.print("Bills from " + start + " through " + end + ":");
 			
 			// get list of bills from DB
-			SimpleDateFormat sqlDate = new SimpleDateFormat("dd/MM/yyyy");
+			SimpleDateFormat sqlDate = new SimpleDateFormat("MM/dd/yyyy");
 			Class.forName("com.mysql.jdbc.Driver").newInstance();
 			Connection connection = DriverManager.getConnection("jdbc:mysql://172.17.0.2:3306/litdb?" 
 			+ "user=root&password=ojmayonnaise");

@@ -10,6 +10,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Map;
 import java.util.Map.Entry;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -21,6 +23,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+
 import org.apache.pdfbox.cos.COSDocument;
 import org.apache.pdfbox.io.*;
 import org.apache.pdfbox.pdfparser.*;
@@ -330,7 +334,13 @@ public class DataCollection extends HttpServlet{
 					pst.executeUpdate();
 					
 					// sort by occurances
-					Object[] sorted = areas.descendingMap().keySet().toArray();
+					// sort by values rather than key
+					// @author memorynotfound.com
+					TreeMap<Integer, Integer> sortedAreas = areas.entrySet().stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                            (e1, e2) -> e1, TreeMap::new));
+					Object[] sorted = sortedAreas.descendingKeySet().toArray();
 					
 					// add to table
 					//System.out.print("Gave legislator " + leg + " areas of concentration ");
@@ -366,8 +376,14 @@ public class DataCollection extends HttpServlet{
 						}
 					}
 					
+					// sort by values rather than key
+					// @author memorynotfound.com
+					TreeMap<String, Integer> sortedWordClouds = clouds.entrySet().stream()
+                    .sorted(Map.Entry.comparingByValue())
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                            (e1, e2) -> e1, TreeMap::new));
 					// sort collected word counts
-					Object[] sortedClouds = clouds.descendingMap().keySet().toArray();
+					Object[] sortedClouds = sortedWordClouds.descendingKeySet().toArray();
 					
 					// remove current from table
 					pst = connection.prepareStatement("DELETE FROM LegWordClouds WHERE Legislator = ?");
@@ -456,12 +472,7 @@ public class DataCollection extends HttpServlet{
 						b.setLastActiveDate("01/01/2016");
 					
 					// convert date to SQL format
-					String date = b.getStartDate();
-					date = date.substring(date.length() - 4) + "-" + date.substring(0, 2) + "-" + date.substring(3, 5);
-					Date start = Date.valueOf(date);
-					date = b.getLastActiveDate();
-					date = date.substring(date.length() - 4) + "-" + date.substring(0, 2) + "-" + date.substring(3, 5);
-					Date last = Date.valueOf(date);
+					SimpleDateFormat sqlDate = new SimpleDateFormat("MM/dd/yyyy");
 					
 					// see if bill is new or already in db
 					if (existingBills.contains(b.getId())) {
@@ -471,8 +482,8 @@ public class DataCollection extends HttpServlet{
 								+ "Link = ? WHERE Id = ?");
 						pst.setString(1, b.getTitle());
 						pst.setString(2, b.getCommittee());
-						pst.setDate(3, start);
-						pst.setDate(4, last);
+						pst.setDate(3, new Date(sqlDate.parse(b.getStartDate()).getTime()));
+						pst.setDate(4, new Date(sqlDate.parse(b.getLastActiveDate()).getTime()));
 						pst.setString(5, b.getStatus());
 						pst.setString(6, b.getLink());
 						pst.setInt(7, b.getId());
@@ -533,8 +544,8 @@ public class DataCollection extends HttpServlet{
 						pst.setInt(1, b.getId());
 						pst.setString(2, b.getTitle());
 						pst.setString(3, b.getCommittee());
-						pst.setDate(4, start);
-						pst.setDate(5, last);
+						pst.setDate(4, new Date(sqlDate.parse(b.getStartDate()).getTime()));
+						pst.setDate(5, new Date(sqlDate.parse(b.getLastActiveDate()).getTime()));
 						pst.setString(6, b.getStatus());
 						pst.setString(7, b.getLink());
 						pst.executeUpdate();
@@ -579,7 +590,10 @@ public class DataCollection extends HttpServlet{
 						cosDoc.close();
 						rab.close();
 						in.close();
+						
+						
 						TreeMap<String, Integer> countedWords = new TreeMap<String, Integer>();
+					
 						for (String w : words) {
 							if (w.length() >= 4 && !owl.contains(w)) {
 								if (countedWords.keySet().contains(w)) {
@@ -591,8 +605,16 @@ public class DataCollection extends HttpServlet{
 							}
 						}
 						
-						Object[] sorted = countedWords.descendingMap().keySet().toArray();
+						// sort by values rather than key
+						// @author memorynotfound.com
+						TreeMap<String, Integer> sortedMap = countedWords.entrySet().stream()
+                        .sorted(Map.Entry.comparingByValue())
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                                (e1, e2) -> e1, TreeMap::new));
 						
+						Object sorted[] = sortedMap.descendingKeySet().toArray();
+						
+						// use top ten
 						for (int i = 0; i < 10; i++) {
 							pst = connection.prepareStatement("INSERT INTO BillWordClouds VALUES (?, ?, ?)");
 							pst.setInt(1, b.getId());
