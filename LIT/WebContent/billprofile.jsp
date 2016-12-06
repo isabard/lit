@@ -70,6 +70,20 @@
 			}
 			out.print(rs.getString("Word"));
 		}
+		
+		// get sponsors
+		pst = connection.prepareStatement("Select l.Id, l.Name FROM Sponsors AS s INNER JOIN Legislators AS l ON l.Id = s.Sponsor WHERE s.Bill = ?");
+		pst.setInt(1, billno);
+		rs = pst.executeQuery();
+		out.println("<br>" + "<b>Sponsors:</b>");
+		out.print("<div style='overflow:auto;width:800px;height:250px;'>");
+		while (rs.next()) {
+			out.print("<form action=\"legislatorprofile.jsp\" method=\"post\">" +
+					  "<button type=\"submit\" name=\"legislator\" value=\"" + rs.getInt("Id") +
+					  "\" class=\"btn-link\">" + rs.getString("Name") +"</button>" +
+					  "</form>");
+		}
+		out.print("</div>");
 	// close connection
 	connection.close();
 	}

@@ -85,7 +85,7 @@ form, table {
 			out.print("<div style='overflow:auto;width:800px;height:250px;'>");
 	
 			// get bills by legislator
-			pst = connection.prepareStatement("Select Bill FROM Sponsors WHERE Sponsor = ?");
+			pst = connection.prepareStatement("Select Bill FROM Sponsors WHERE Sponsor = ? ORDER BY Bill");
 			pst.setInt(1, leg);
 			rs = pst.executeQuery();
 			int count = 0;

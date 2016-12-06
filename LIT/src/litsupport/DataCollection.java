@@ -11,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-import java.util.Map;
 import java.util.Map.Entry;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -23,8 +22,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-
 import org.apache.pdfbox.cos.COSDocument;
 import org.apache.pdfbox.io.*;
 import org.apache.pdfbox.pdfparser.*;
@@ -176,6 +173,62 @@ public class DataCollection extends HttpServlet{
 				message.add("1");
 				executor.shutdown();
 			}
+		}
+		
+		/**
+		 * Method to sort a wordcloud map
+		 * @param map
+		 * @return
+		 */
+		String[] getTopTen(TreeMap<String, Integer> map) {
+			String[] topTen = new String[10];
+			
+			// iterate through map
+			for (Entry<String, Integer> e : map.entrySet()) {
+				// compare to current array
+				for (int i = 0; i < 10; i++) {
+					// if entry is empty, add this one
+					if (topTen[i] == null) {
+						topTen[i] = e.getKey();
+						break;
+					}
+					// if count of current is greater than array value's, add it
+					else if (e.getValue() > map.get(topTen[i])) {
+						topTen[i] = e.getKey();
+						break;
+					}
+				}
+			}
+			
+			return topTen;
+		}
+		
+		/**
+		 * Method to sort areas of concentration
+		 * @param map
+		 * @return
+		 */
+		Integer[] getTopThree(TreeMap<Integer, Integer> map) {
+			Integer[] topTen = new Integer[3];
+			
+			// iterate through map
+			for (Entry<Integer, Integer> e : map.entrySet()) {
+				// compare to current array
+				for (int i = 0; i < 10; i++) {
+					// if entry is empty, add this one
+					if (topTen[i] == null) {
+						topTen[i] = e.getKey();
+						break;
+					}
+					// if count of current is greater than array value's, add it
+					else if (e.getValue() > map.get(topTen[i])) {
+						topTen[i] = e.getKey();
+						break;
+					}
+				}
+			}
+			
+			return topTen;
 		}
 		
 		/**
@@ -333,14 +386,8 @@ public class DataCollection extends HttpServlet{
 					pst.setInt(1, leg);
 					pst.executeUpdate();
 					
-					// sort by occurances
-					// sort by values rather than key
-					// @author memorynotfound.com
-					TreeMap<Integer, Integer> sortedAreas = areas.entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                            (e1, e2) -> e1, TreeMap::new));
-					Object[] sorted = sortedAreas.descendingKeySet().toArray();
+					
+					Integer[] sorted = getTopThree(areas);
 					
 					// add to table
 					//System.out.print("Gave legislator " + leg + " areas of concentration ");
@@ -376,14 +423,7 @@ public class DataCollection extends HttpServlet{
 						}
 					}
 					
-					// sort by values rather than key
-					// @author memorynotfound.com
-					TreeMap<String, Integer> sortedWordClouds = clouds.entrySet().stream()
-                    .sorted(Map.Entry.comparingByValue())
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                            (e1, e2) -> e1, TreeMap::new));
-					// sort collected word counts
-					Object[] sortedClouds = sortedWordClouds.descendingKeySet().toArray();
+					String[] sortedClouds = getTopTen(clouds);
 					
 					// remove current from table
 					pst = connection.prepareStatement("DELETE FROM LegWordClouds WHERE Legislator = ?");
@@ -391,14 +431,11 @@ public class DataCollection extends HttpServlet{
 					pst.executeUpdate();
 					
 					// add newly calculated words
-					int words = 10;
-					if (sortedClouds.length < 10)
-						words = sortedClouds.length;
-					for (int i = 0; i < words; i++) {
+					for (String s : sortedClouds) {
 						pst = connection.prepareStatement("INSERT INTO LegWordClouds VALUES (?,?,?)");
 						pst.setInt(1, leg);
-						pst.setString(2, (String) sortedClouds[i]);
-						pst.setInt(3, clouds.get(sortedClouds[i]));
+						pst.setString(2, s);
+						pst.setInt(3, clouds.get(s));
 						pst.executeUpdate();
 					}
 					
@@ -412,7 +449,7 @@ public class DataCollection extends HttpServlet{
 			
 			return 0;
 		}
-		
+
 		/**
 		 * Method to create a map of legislator names to their ids.
 		 * @param legIds
@@ -605,21 +642,14 @@ public class DataCollection extends HttpServlet{
 							}
 						}
 						
-						// sort by values rather than key
-						// @author memorynotfound.com
-						TreeMap<String, Integer> sortedMap = countedWords.entrySet().stream()
-                        .sorted(Map.Entry.comparingByValue())
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                                (e1, e2) -> e1, TreeMap::new));
-						
-						Object sorted[] = sortedMap.descendingKeySet().toArray();
+						String sorted[] = getTopTen(countedWords);
 						
 						// use top ten
-						for (int i = 0; i < 10; i++) {
+						for (String s : sorted) {
 							pst = connection.prepareStatement("INSERT INTO BillWordClouds VALUES (?, ?, ?)");
 							pst.setInt(1, b.getId());
-							pst.setString(2, (String) sorted[i]);
-							pst.setInt(3, countedWords.get(sorted[i]));
+							pst.setString(2, s);
+							pst.setInt(3, countedWords.get(s));
 							pst.executeUpdate();
 						}
 					}
